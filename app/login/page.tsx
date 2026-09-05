@@ -1,3 +1,4 @@
+import SubmitButton from "@/components/SubmitButton";
 import { signIn, signUp } from "./actions";
 
 export default async function LoginPage({
@@ -48,12 +49,9 @@ export default async function LoginPage({
             placeholder="Contraseña"
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
           />
-          <button
-            type="submit"
-            className="w-full rounded-md bg-nexa-blue px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-nexa-navy"
-          >
+          <SubmitButton variant="primary" pendingLabel="Entrando..." className="w-full rounded-md px-3 py-2 text-sm font-medium">
             Entrar
-          </button>
+          </SubmitButton>
         </form>
 
         <details className="rounded-xl border border-white/20 bg-white/95 p-5 shadow-lg shadow-nexa-navy/10">
@@ -83,12 +81,9 @@ export default async function LoginPage({
               placeholder="Contraseña (mín. 6 caracteres)"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
             />
-            <button
-              type="submit"
-              className="w-full rounded-md bg-nexa-navy px-3 py-2 text-sm font-medium text-white hover:bg-slate-900"
-            >
+            <SubmitButton variant="dark" pendingLabel="Creando cuenta..." className="w-full rounded-md px-3 py-2 text-sm font-medium">
               Registrarme
-            </button>
+            </SubmitButton>
             <p className="text-xs text-slate-400">
               Las cuentas nuevas entran con rol QA por defecto. Un admin puede cambiar el rol luego
               en Admin → Usuarios.

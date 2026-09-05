@@ -4,6 +4,8 @@ import { useState } from "react";
 import { signOut } from "@/app/login/actions";
 import { ROLE_LABELS, type Profile } from "@/lib/types";
 import NavLink from "./NavLink";
+import ThemeToggle from "./ThemeToggle";
+import NotificationBell from "./NotificationBell";
 
 export default function Sidebar({ profile }: { profile: Profile }) {
   const [open, setOpen] = useState(false);
@@ -19,21 +21,24 @@ export default function Sidebar({ profile }: { profile: Profile }) {
           </span>
           <p className="text-sm font-semibold text-white">Nexa Tracker</p>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-label="Abrir menú"
-          className="rounded-md p-2 text-white hover:bg-white/10"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path
-              d="M3 5h14M3 10h14M3 15h14"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="Abrir menú"
+            className="rounded-md p-2 text-white hover:bg-white/10"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path
+                d="M3 5h14M3 10h14M3 15h14"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Fondo oscuro al abrir el menú en móvil */}
@@ -52,13 +57,14 @@ export default function Sidebar({ profile }: { profile: Profile }) {
       >
         <div>
           <div className="mb-8 flex items-center gap-2 px-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-nexa-sky to-nexa-blue text-sm font-bold text-white">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-nexa-sky to-nexa-blue text-sm font-bold text-white">
               N
             </span>
-            <div>
-              <p className="text-sm font-semibold leading-tight text-white">Nexa Tracker</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold leading-tight text-white">Nexa Tracker</p>
               <p className="text-xs leading-tight text-blue-200/70">Bugs · QA</p>
             </div>
+            <NotificationBell />
           </div>
 
           <nav className="space-y-1">
@@ -100,6 +106,7 @@ export default function Sidebar({ profile }: { profile: Profile }) {
               <p className="text-xs text-blue-200/70">{ROLE_LABELS[profile.role]}</p>
             </div>
           </div>
+          <ThemeToggle />
           <form action={signOut}>
             <button
               type="submit"

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
@@ -13,10 +12,14 @@ export async function updateTestCase(formData: FormData) {
   const steps = String(formData.get("steps") ?? "").trim();
   const expectedResult = String(formData.get("expected_result") ?? "").trim();
 
-  if (!title || !steps || !expectedResult) redirect(`/test-cases/${id}`);
+  if (!title || !steps || !expectedResult) {
+    redirect(
+      `/test-cases/${id}?error=${encodeURIComponent("Completa título, pasos y resultado esperado.")}`,
+    );
+  }
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("test_cases")
     .update({
       title,
@@ -26,7 +29,11 @@ export async function updateTestCase(formData: FormData) {
     })
     .eq("id", id);
 
-  revalidatePath(`/test-cases/${id}`);
+  if (error) {
+    redirect(`/test-cases/${id}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/test-cases/${id}?success=${encodeURIComponent("Cambios guardados.")}`);
 }
 
 export async function recordTestCaseRun(formData: FormData) {
@@ -36,7 +43,7 @@ export async function recordTestCaseRun(formData: FormData) {
   const notes = String(formData.get("notes") ?? "").trim();
 
   const supabase = await createClient();
-  await supabase
+  const { error } = await supabase
     .from("test_cases")
     .update({
       status,
@@ -46,5 +53,9 @@ export async function recordTestCaseRun(formData: FormData) {
     })
     .eq("id", id);
 
-  revalidatePath(`/test-cases/${id}`);
+  if (error) {
+    redirect(`/test-cases/${id}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/test-cases/${id}?success=${encodeURIComponent("Resultado registrado.")}`);
 }

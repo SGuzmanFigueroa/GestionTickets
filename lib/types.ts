@@ -69,7 +69,7 @@ export interface Ticket {
   severity: TicketSeverity;
   priority: TicketPriority;
   status: TicketStatus;
-  reporter_id: string;
+  reporter_id: string | null;
   assignee_id: string | null;
   target_role: UserRole | null;
   test_case_id: string | null;
@@ -82,6 +82,14 @@ export interface TicketWithRelations extends Ticket {
   reporter: Pick<Profile, "id" | "full_name" | "email"> | null;
   assignee: Pick<Profile, "id" | "full_name" | "email"> | null;
   test_case: Pick<TestCase, "id" | "title"> | null;
+}
+
+export interface TicketAttachment {
+  id: string;
+  ticket_id: string;
+  url: string;
+  uploaded_by: string | null;
+  created_at: string;
 }
 
 export type TestCaseStatus = "not_run" | "passed" | "failed" | "blocked";
@@ -106,7 +114,7 @@ export interface TestCase {
   last_run_by: string | null;
   last_run_at: string | null;
   last_run_notes: string | null;
-  created_by: string;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -119,7 +127,7 @@ export interface TestCaseWithRelations extends TestCase {
 export interface TicketComment {
   id: string;
   ticket_id: string;
-  author_id: string;
+  author_id: string | null;
   body: string;
   created_at: string;
   author: Pick<Profile, "id" | "full_name" | "email"> | null;

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
@@ -19,7 +18,9 @@ export async function createProject(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
 
-  if (!name) redirect("/admin/projects");
+  if (!name) {
+    redirect(`/admin/projects?error=${encodeURIComponent("Ponle un nombre a la app.")}`);
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.from("projects").insert({
@@ -33,14 +34,18 @@ export async function createProject(formData: FormData) {
     redirect(`/admin/projects?error=${encodeURIComponent(error.message)}`);
   }
 
-  revalidatePath("/admin/projects");
-  redirect("/admin/projects");
+  redirect(`/admin/projects?success=${encodeURIComponent("App agregada.")}`);
 }
 
 export async function deleteProject(formData: FormData) {
   await requireAdmin();
   const id = String(formData.get("id") ?? "");
   const supabase = await createClient();
-  await supabase.from("projects").delete().eq("id", id);
-  revalidatePath("/admin/projects");
+  const { error } = await supabase.from("projects").delete().eq("id", id);
+
+  if (error) {
+    redirect(`/admin/projects?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/admin/projects?success=${encodeURIComponent("App eliminada.")}`);
 }

@@ -17,6 +17,10 @@ export async function createTicket(formData: FormData) {
   const priority = String(formData.get("priority") ?? "medium");
   const targetRole = String(formData.get("target_role") ?? "");
   const testCaseId = String(formData.get("test_case_id") ?? "");
+  const attachments = String(formData.get("attachments") ?? "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
 
   if (!projectId || !title || !description) {
     redirect(`/tickets/new?error=${encodeURIComponent("Completa app, título y descripción.")}`);
@@ -43,5 +47,15 @@ export async function createTicket(formData: FormData) {
     redirect(`/tickets/new?error=${encodeURIComponent(error?.message ?? "No se pudo crear el ticket")}`);
   }
 
-  redirect(`/tickets/${data.id}`);
+  if (attachments.length > 0) {
+    await supabase.from("ticket_attachments").insert(
+      attachments.map((url) => ({
+        ticket_id: data.id,
+        url,
+        uploaded_by: profile.id,
+      })),
+    );
+  }
+
+  redirect(`/tickets/${data.id}?success=${encodeURIComponent("Ticket creado con éxito.")}`);
 }

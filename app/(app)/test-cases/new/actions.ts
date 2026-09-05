@@ -39,5 +39,5 @@ export async function createTestCase(formData: FormData) {
     );
   }
 
-  redirect(`/test-cases/${data.id}`);
+  redirect(`/test-cases/${data.id}?success=${encodeURIComponent("Caso de prueba creado con éxito.")}`);
 }

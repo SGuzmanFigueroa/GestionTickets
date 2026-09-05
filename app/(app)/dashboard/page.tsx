@@ -46,8 +46,8 @@ export default async function DashboardPage({
     <div className="max-w-5xl">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-nexa-navy">Tickets</h1>
-          <p className="text-sm text-slate-500">Bugs reportados en todas las apps</p>
+          <h1 className="text-xl font-semibold text-nexa-navy dark:text-white">Tickets</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Bugs reportados en todas las apps</p>
         </div>
         <Link
           href="/tickets/new"
@@ -58,21 +58,21 @@ export default async function DashboardPage({
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
+        <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Total</p>
-          <p className="mt-1 text-2xl font-semibold text-nexa-navy">{stats.total}</p>
+          <p className="mt-1 text-2xl font-semibold text-nexa-navy dark:text-white">{stats.total}</p>
         </div>
-        <div className="rounded-lg border border-blue-100 bg-nexa-light p-4">
+        <div className="rounded-lg border border-blue-100 bg-nexa-light p-4 dark:border-blue-900/40 dark:bg-blue-950/30">
           <p className="text-xs font-medium uppercase tracking-wide text-nexa-blue/70">Abiertos</p>
           <p className="mt-1 text-2xl font-semibold text-nexa-blue">{stats.open}</p>
         </div>
-        <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+        <div className="rounded-lg border border-amber-100 bg-amber-50 p-4 dark:border-amber-900/40 dark:bg-amber-950/30">
           <p className="text-xs font-medium uppercase tracking-wide text-amber-600/80">
             En progreso
           </p>
           <p className="mt-1 text-2xl font-semibold text-amber-700">{stats.inProgress}</p>
         </div>
-        <div className="rounded-lg border border-red-100 bg-red-50 p-4">
+        <div className="rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-900/40 dark:bg-red-950/30">
           <p className="text-xs font-medium uppercase tracking-wide text-red-600/80">Críticos</p>
           <p className="mt-1 text-2xl font-semibold text-red-700">{stats.critical}</p>
         </div>
@@ -82,7 +82,7 @@ export default async function DashboardPage({
         <select
           name="project"
           defaultValue={project ?? ""}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue"
+          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         >
           <option value="">Todas las apps</option>
           {projects?.map((p) => (
@@ -95,7 +95,7 @@ export default async function DashboardPage({
         <select
           name="status"
           defaultValue={status ?? ""}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue"
+          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         >
           <option value="">Todos los estados</option>
           {TICKET_STATUSES.map((s) => (
@@ -105,7 +105,7 @@ export default async function DashboardPage({
           ))}
         </select>
 
-        <label className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1.5">
+        <label className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
           <input type="checkbox" name="mine" value="1" defaultChecked={mine === "1"} />
           Asignados a mí
         </label>
@@ -119,7 +119,7 @@ export default async function DashboardPage({
         {(project || status || mine) && (
           <Link
             href="/dashboard"
-            className="rounded-md px-3 py-1.5 text-slate-500 hover:bg-slate-100"
+            className="rounded-md px-3 py-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             Limpiar
           </Link>
@@ -127,15 +127,15 @@ export default async function DashboardPage({
       </form>
 
       {error && (
-        <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+        <p className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
           Error cargando tickets: {error.message}
         </p>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70">
+          <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300">
             <tr>
               <th className="px-4 py-2 font-medium">Título</th>
               <th className="px-4 py-2 font-medium">App</th>
@@ -145,18 +145,18 @@ export default async function DashboardPage({
               <th className="px-4 py-2 font-medium">Asignado a</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {(tickets as TicketWithRelations[] | null)?.map((t) => (
-              <tr key={t.id} className="transition-colors hover:bg-nexa-light/30">
+              <tr key={t.id} className="transition-colors hover:bg-nexa-light/30 dark:hover:bg-slate-700/40">
                 <td className="px-4 py-2.5">
                   <Link
                     href={`/tickets/${t.id}`}
-                    className="font-medium text-slate-800 hover:text-nexa-blue hover:underline"
+                    className="font-medium text-slate-800 hover:text-nexa-blue hover:underline dark:text-slate-100"
                   >
                     {t.title}
                   </Link>
                 </td>
-                <td className="px-4 py-2.5 text-slate-500">{t.project?.name}</td>
+                <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{t.project?.name}</td>
                 <td className="px-4 py-2.5">
                   <StatusBadge status={t.status} label={STATUS_LABELS[t.status]} />
                 </td>
@@ -166,7 +166,7 @@ export default async function DashboardPage({
                 <td className="px-4 py-2.5">
                   <PriorityBadge priority={t.priority} label={t.priority} />
                 </td>
-                <td className="px-4 py-2.5 text-slate-500">
+                <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">
                   {t.assignee?.full_name ?? t.assignee?.email ?? "Sin asignar"}
                 </td>
               </tr>
