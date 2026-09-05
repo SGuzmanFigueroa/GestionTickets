@@ -5,9 +5,9 @@ import { ROLE_LABELS, TICKET_PRIORITIES, TICKET_SEVERITIES, USER_ROLES } from "@
 export default async function NewTicketPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; project_id?: string; title?: string; test_case_id?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, project_id, title, test_case_id } = await searchParams;
   const supabase = await createClient();
   const { data: projects } = await supabase.from("projects").select("id, name").order("name");
 
@@ -15,6 +15,12 @@ export default async function NewTicketPage({
     <div className="max-w-2xl">
       <h1 className="mb-1 text-xl font-semibold text-nexa-navy">Nuevo ticket</h1>
       <p className="mb-6 text-sm text-slate-500">Reporta un bug encontrado en alguna de las apps.</p>
+
+      {test_case_id && (
+        <p className="mb-4 rounded-md bg-nexa-light p-3 text-sm text-nexa-blue">
+          Este ticket va a quedar enlazado al caso de prueba que falló.
+        </p>
+      )}
 
       {error && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
@@ -28,11 +34,14 @@ export default async function NewTicketPage({
           action={createTicket}
           className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
         >
+          {test_case_id && <input type="hidden" name="test_case_id" value={test_case_id} />}
+
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">App</label>
             <select
               name="project_id"
               required
+              defaultValue={project_id ?? projects[0]?.id}
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
             >
               {projects.map((p) => (
@@ -48,6 +57,7 @@ export default async function NewTicketPage({
             <input
               name="title"
               required
+              defaultValue={title ?? ""}
               placeholder="Ej: El botón de guardar no responde en Android"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
             />

@@ -72,6 +72,7 @@ export interface Ticket {
   reporter_id: string;
   assignee_id: string | null;
   target_role: UserRole | null;
+  test_case_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -80,6 +81,39 @@ export interface TicketWithRelations extends Ticket {
   project: Pick<Project, "id" | "name" | "slug">;
   reporter: Pick<Profile, "id" | "full_name" | "email"> | null;
   assignee: Pick<Profile, "id" | "full_name" | "email"> | null;
+  test_case: Pick<TestCase, "id" | "title"> | null;
+}
+
+export type TestCaseStatus = "not_run" | "passed" | "failed" | "blocked";
+
+export const TEST_CASE_STATUSES: TestCaseStatus[] = ["not_run", "passed", "failed", "blocked"];
+
+export const TEST_CASE_STATUS_LABELS: Record<TestCaseStatus, string> = {
+  not_run: "Sin ejecutar",
+  passed: "Pasó",
+  failed: "Falló",
+  blocked: "Bloqueado",
+};
+
+export interface TestCase {
+  id: string;
+  project_id: string;
+  title: string;
+  preconditions: string | null;
+  steps: string;
+  expected_result: string;
+  status: TestCaseStatus;
+  last_run_by: string | null;
+  last_run_at: string | null;
+  last_run_notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TestCaseWithRelations extends TestCase {
+  project: Pick<Project, "id" | "name" | "slug">;
+  last_run_by_profile: Pick<Profile, "id" | "full_name" | "email"> | null;
 }
 
 export interface TicketComment {

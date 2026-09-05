@@ -16,6 +16,7 @@ export async function createTicket(formData: FormData) {
   const severity = String(formData.get("severity") ?? "medium");
   const priority = String(formData.get("priority") ?? "medium");
   const targetRole = String(formData.get("target_role") ?? "");
+  const testCaseId = String(formData.get("test_case_id") ?? "");
 
   if (!projectId || !title || !description) {
     redirect(`/tickets/new?error=${encodeURIComponent("Completa app, título y descripción.")}`);
@@ -32,6 +33,7 @@ export async function createTicket(formData: FormData) {
       severity,
       priority,
       target_role: targetRole || null,
+      test_case_id: testCaseId || null,
       reporter_id: profile.id,
     })
     .select("id")

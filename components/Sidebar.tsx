@@ -68,6 +68,9 @@ export default function Sidebar({ profile }: { profile: Profile }) {
             <NavLink href="/tickets/new" onNavigate={close}>
               + Nuevo ticket
             </NavLink>
+            <NavLink href="/test-cases" onNavigate={close}>
+              Casos de prueba
+            </NavLink>
 
             {profile.role === "admin" && (
               <div className="mt-6 space-y-1">

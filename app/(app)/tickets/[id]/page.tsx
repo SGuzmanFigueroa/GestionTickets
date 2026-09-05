@@ -25,7 +25,7 @@ export default async function TicketDetailPage({
   const { data: ticket } = await supabase
     .from("tickets")
     .select(
-      "*, project:projects(id, name, slug), reporter:profiles!tickets_reporter_id_fkey(id, full_name, email), assignee:profiles!tickets_assignee_id_fkey(id, full_name, email)",
+      "*, project:projects(id, name, slug), reporter:profiles!tickets_reporter_id_fkey(id, full_name, email), assignee:profiles!tickets_assignee_id_fkey(id, full_name, email), test_case:test_cases(id, title)",
     )
     .eq("id", id)
     .single();
@@ -67,10 +67,23 @@ export default async function TicketDetailPage({
         </div>
 
         <h1 className="mb-1 text-xl font-semibold text-nexa-navy">{t.title}</h1>
-        <p className="mb-4 text-xs text-slate-400">
-          Reportado por {t.reporter?.full_name ?? t.reporter?.email} ·{" "}
-          {new Date(t.created_at).toLocaleString("es-PE")}
-        </p>
+        <div className="mb-4">
+          <p className="text-xs text-slate-400">
+            Reportado por {t.reporter?.full_name ?? t.reporter?.email} ·{" "}
+            {new Date(t.created_at).toLocaleString("es-PE")}
+          </p>
+          {t.test_case && (
+            <p className="text-xs text-slate-400">
+              Originado del caso de prueba:{" "}
+              <Link
+                href={`/test-cases/${t.test_case.id}`}
+                className="text-nexa-blue hover:underline"
+              >
+                {t.test_case.title}
+              </Link>
+            </p>
+          )}
+        </div>
 
         <div className="space-y-4 text-sm text-slate-700">
           <div>
