@@ -33,6 +33,14 @@ export async function deleteUser(formData: FormData) {
     redirect(`/admin/users?error=${encodeURIComponent("No puedes eliminar tu propia cuenta.")}`);
   }
 
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    redirect(
+      `/admin/users?error=${encodeURIComponent(
+        "Falta configurar SUPABASE_SERVICE_ROLE_KEY en el servidor para poder eliminar cuentas.",
+      )}`,
+    );
+  }
+
   const supabaseAdmin = createAdminClient();
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
