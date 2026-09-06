@@ -52,19 +52,44 @@ export default async function TicketDetailPage({
 
   const t = ticket as TicketWithRelations;
 
-  const [{ data: comments }, { data: people }, { data: attachments }] = await Promise.all([
-    supabase
-      .from("ticket_comments")
-      .select("*, author:profiles(id, full_name, email)")
-      .eq("ticket_id", id)
-      .order("created_at", { ascending: true }),
-    supabase.from("profiles").select("id, full_name, email, role").order("full_name"),
-    supabase
-      .from("ticket_attachments")
-      .select("id, url")
-      .eq("ticket_id", id)
-      .order("created_at", { ascending: true }),
-  ]);
+  const [{ data: comments }, { data: people }, { data: attachments }, { data: history }] =
+    await Promise.all([
+      supabase
+        .from("ticket_comments")
+        .select("*, author:profiles(id, full_name, email)")
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: true }),
+      supabase.from("profiles").select("id, full_name, email, role").order("full_name"),
+      supabase
+        .from("ticket_attachments")
+        .select("id, url")
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("ticket_history")
+        .select("id, field, old_value, new_value, created_at, actor:profiles(full_name, email)")
+        .eq("ticket_id", id)
+        .order("created_at", { ascending: false }),
+    ]);
+
+  const peopleById = new Map(
+    (people as Pick<Profile, "id" | "full_name" | "email">[] | null)?.map((p) => [p.id, p]) ?? [],
+  );
+
+  function describeHistoryEntry(h: {
+    field: string;
+    old_value: string | null;
+    new_value: string | null;
+  }) {
+    if (h.field === "status") {
+      const from = h.old_value ? STATUS_LABELS[h.old_value as keyof typeof STATUS_LABELS] : "—";
+      const to = h.new_value ? STATUS_LABELS[h.new_value as keyof typeof STATUS_LABELS] : "—";
+      return `cambió el estado de "${from}" a "${to}"`;
+    }
+    const nameOf = (userId: string | null) =>
+      userId ? peopleById.get(userId)?.full_name ?? peopleById.get(userId)?.email ?? "usuario eliminado" : "Sin asignar";
+    return `cambió el asignado de "${nameOf(h.old_value)}" a "${nameOf(h.new_value)}"`;
+  }
 
   const canManage = profile.role === "admin" || t.reporter_id === profile.id || t.assignee_id === profile.id;
 
@@ -345,6 +370,27 @@ export default async function TicketDetailPage({
               Guardar cambios
             </SubmitButton>
           </form>
+        </div>
+      )}
+
+      {!!history?.length && (
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <h2 className="mb-3 text-sm font-semibold text-nexa-navy dark:text-white">
+            Historial ({history.length})
+          </h2>
+          <ul className="space-y-2 border-l border-slate-200 pl-4 dark:border-slate-700">
+            {history.map((h) => {
+              const actor = Array.isArray(h.actor) ? h.actor[0] : h.actor;
+              return (
+                <li key={h.id} className="text-xs text-slate-500 dark:text-slate-400">
+                  <span className="font-medium text-slate-700 dark:text-slate-300">
+                    {actor?.full_name ?? actor?.email ?? "usuario eliminado"}
+                  </span>{" "}
+                  {describeHistoryEntry(h)} · {formatDateTime(h.created_at)}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
 
