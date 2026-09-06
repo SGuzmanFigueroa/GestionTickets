@@ -6,6 +6,7 @@ import { StatusBadge, SeverityBadge, PriorityBadge } from "@/components/Badge";
 import SubmitButton from "@/components/SubmitButton";
 import SuccessBanner from "@/components/SuccessBanner";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
+import ImagePasteUpload from "@/components/ImagePasteUpload";
 import { formatDateTime } from "@/lib/format";
 import {
   ROLE_LABELS,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/types";
 import {
   addComment,
+  addTicketAttachments,
   deleteTicket,
   updateTicketAssignee,
   updateTicketDetails,
@@ -148,23 +150,34 @@ export default async function TicketDetailPage({
             </div>
           )}
 
-          {!!attachments?.length && (
-            <div>
-              <h2 className="mb-1 font-medium text-slate-800 dark:text-slate-200">Capturas de pantalla</h2>
-              <div className="flex flex-wrap gap-2">
+          <div>
+            <h2 className="mb-1 font-medium text-slate-800 dark:text-slate-200">Capturas de pantalla</h2>
+            {!!attachments?.length && (
+              <div className="mb-3 flex flex-wrap gap-2">
                 {attachments.map((a) => (
                   <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={a.url}
                       alt="Captura adjunta"
-                      className="h-24 w-24 rounded-md border border-slate-200 object-cover transition-opacity hover:opacity-80"
+                      className="h-24 w-24 rounded-md border border-slate-200 object-cover transition-opacity hover:opacity-80 dark:border-slate-700"
                     />
                   </a>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+            <form action={addTicketAttachments} className="max-w-sm space-y-2">
+              <input type="hidden" name="ticket_id" value={t.id} />
+              <ImagePasteUpload name="attachments" />
+              <SubmitButton
+                variant="dark"
+                pendingLabel="Subiendo..."
+                className="rounded-md px-3 py-1.5 text-xs"
+              >
+                Adjuntar
+              </SubmitButton>
+            </form>
+          </div>
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2 dark:border-slate-700">

@@ -128,6 +128,34 @@ export async function updateTicketDetails(formData: FormData) {
   redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Ticket actualizado.")}`);
 }
 
+export async function addTicketAttachments(formData: FormData) {
+  const profile = await requireProfile();
+  const ticketId = String(formData.get("ticket_id") ?? "");
+  const attachments = String(formData.get("attachments") ?? "")
+    .split(",")
+    .map((url) => url.trim())
+    .filter(Boolean);
+
+  if (attachments.length === 0) {
+    redirect(`/tickets/${ticketId}?error=${encodeURIComponent("Pega una captura antes de subirla.")}`);
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("ticket_attachments").insert(
+    attachments.map((url) => ({
+      ticket_id: ticketId,
+      url,
+      uploaded_by: profile.id,
+    })),
+  );
+
+  if (error) {
+    redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Imagen adjuntada.")}`);
+}
+
 export async function deleteTicket(formData: FormData) {
   await requireAdmin();
   const ticketId = String(formData.get("ticket_id") ?? "");
