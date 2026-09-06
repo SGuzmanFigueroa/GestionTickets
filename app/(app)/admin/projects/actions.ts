@@ -17,15 +17,23 @@ export async function createProject(formData: FormData) {
   const profile = await requireAdmin();
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
+  const code = String(formData.get("code") ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
 
   if (!name) {
     redirect(`/admin/projects?error=${encodeURIComponent("Ponle un nombre a la app.")}`);
+  }
+  if (!code) {
+    redirect(`/admin/projects?error=${encodeURIComponent("Ponle un código corto a la app (ej. INV).")}`);
   }
 
   const supabase = await createClient();
   const { error } = await supabase.from("projects").insert({
     name,
     slug: slugify(name),
+    code,
     description: description || null,
     created_by: profile.id,
   });

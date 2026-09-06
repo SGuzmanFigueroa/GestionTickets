@@ -54,6 +54,7 @@ export interface Project {
   id: string;
   name: string;
   slug: string;
+  code: string;
   description: string | null;
   created_by: string | null;
   created_at: string;
@@ -62,6 +63,7 @@ export interface Project {
 export interface Ticket {
   id: string;
   project_id: string;
+  ticket_number: number;
   title: string;
   description: string;
   steps_to_reproduce: string | null;
@@ -78,7 +80,7 @@ export interface Ticket {
 }
 
 export interface TicketWithRelations extends Ticket {
-  project: Pick<Project, "id" | "name" | "slug">;
+  project: Pick<Project, "id" | "name" | "slug" | "code">;
   reporter: Pick<Profile, "id" | "full_name" | "email"> | null;
   assignee: Pick<Profile, "id" | "full_name" | "email"> | null;
   test_case: Pick<TestCase, "id" | "title"> | null;
@@ -120,7 +122,7 @@ export interface TestCase {
 }
 
 export interface TestCaseWithRelations extends TestCase {
-  project: Pick<Project, "id" | "name" | "slug">;
+  project: Pick<Project, "id" | "name" | "slug" | "code">;
   last_run_by_profile: Pick<Profile, "id" | "full_name" | "email"> | null;
 }
 

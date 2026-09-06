@@ -32,7 +32,7 @@ export default async function DashboardPage({
   let query = supabase
     .from("tickets")
     .select(
-      "*, project:projects(id, name, slug), reporter:profiles!tickets_reporter_id_fkey(id, full_name, email), assignee:profiles!tickets_assignee_id_fkey(id, full_name, email)",
+      "*, project:projects(id, name, slug, code), reporter:profiles!tickets_reporter_id_fkey(id, full_name, email), assignee:profiles!tickets_assignee_id_fkey(id, full_name, email)",
     )
     .order("created_at", { ascending: false });
 
@@ -134,9 +134,10 @@ export default async function DashboardPage({
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] text-left text-sm">
+        <table className="w-full min-w-[780px] text-left text-sm">
           <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300">
             <tr>
+              <th className="px-4 py-2 font-medium">Código</th>
               <th className="px-4 py-2 font-medium">Título</th>
               <th className="px-4 py-2 font-medium">App</th>
               <th className="px-4 py-2 font-medium">Estado</th>
@@ -148,6 +149,14 @@ export default async function DashboardPage({
           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
             {(tickets as TicketWithRelations[] | null)?.map((t) => (
               <tr key={t.id} className="transition-colors hover:bg-nexa-light/30 dark:hover:bg-slate-700/40">
+                <td className="px-4 py-2.5">
+                  <Link
+                    href={`/tickets/${t.id}`}
+                    className="font-mono text-xs text-slate-400 hover:text-nexa-blue hover:underline dark:text-slate-500"
+                  >
+                    {t.project?.code}-{t.ticket_number}
+                  </Link>
+                </td>
                 <td className="px-4 py-2.5">
                   <Link
                     href={`/tickets/${t.id}`}
@@ -173,7 +182,7 @@ export default async function DashboardPage({
             ))}
             {tickets?.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-10 text-center text-slate-400">
                   No hay tickets con estos filtros.
                 </td>
               </tr>

@@ -15,7 +15,7 @@ export default async function AdminProjectsPage({
   const supabase = await createClient();
   const { data: projects } = await supabase
     .from("projects")
-    .select("id, name, slug, description, created_at")
+    .select("id, name, slug, code, description, created_at")
     .order("created_at", { ascending: false });
 
   return (
@@ -42,6 +42,16 @@ export default async function AdminProjectsPage({
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
+        <div className="w-28 basis-full sm:basis-auto">
+          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Código</label>
+          <input
+            name="code"
+            required
+            maxLength={5}
+            placeholder="Ej: INV"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          />
+        </div>
         <div className="min-w-[160px] flex-1 basis-full sm:basis-auto">
           <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Descripción</label>
           <input
@@ -62,8 +72,8 @@ export default async function AdminProjectsPage({
             className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
           >
             <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-nexa-light text-sm font-semibold text-nexa-blue">
-                {p.name.slice(0, 1).toUpperCase()}
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-nexa-light text-xs font-semibold text-nexa-blue">
+                {p.code}
               </span>
               <div>
                 <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{p.name}</p>

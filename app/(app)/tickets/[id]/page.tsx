@@ -43,7 +43,7 @@ export default async function TicketDetailPage({
   const { data: ticket } = await supabase
     .from("tickets")
     .select(
-      "*, project:projects(id, name, slug), reporter:profiles!tickets_reporter_id_fkey(id, full_name, email), assignee:profiles!tickets_assignee_id_fkey(id, full_name, email), test_case:test_cases(id, title)",
+      "*, project:projects(id, name, slug, code), reporter:profiles!tickets_reporter_id_fkey(id, full_name, email), assignee:profiles!tickets_assignee_id_fkey(id, full_name, email), test_case:test_cases(id, title)",
     )
     .eq("id", id)
     .single();
@@ -111,7 +111,12 @@ export default async function TicketDetailPage({
           )}
         </div>
 
-        <h1 className="mb-1 text-xl font-semibold text-nexa-navy dark:text-white">{t.title}</h1>
+        <h1 className="mb-1 text-xl font-semibold text-nexa-navy dark:text-white">
+          <span className="text-slate-400 dark:text-slate-500">
+            {t.project?.code}-{t.ticket_number}
+          </span>{" "}
+          {t.title}
+        </h1>
         <div className="mb-4">
           <p className="text-xs text-slate-400">
             Reportado por {t.reporter?.full_name ?? t.reporter?.email ?? "usuario eliminado"} ·{" "}
