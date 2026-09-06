@@ -22,7 +22,10 @@ export default function Sidebar({ profile }: { profile: Profile }) {
           <p className="text-sm font-semibold text-white">Nexa Tracker</p>
         </div>
         <div className="flex items-center gap-1">
-          <NotificationBell />
+          <NotificationBell
+            buttonClassName="text-white hover:bg-white/10"
+            panelAlign="right"
+          />
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -60,11 +63,10 @@ export default function Sidebar({ profile }: { profile: Profile }) {
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-nexa-sky to-nexa-blue text-sm font-bold text-white">
               N
             </span>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               <p className="truncate text-sm font-semibold leading-tight text-white">Nexa Tracker</p>
               <p className="text-xs leading-tight text-blue-200/70">Bugs · QA</p>
             </div>
-            <NotificationBell />
           </div>
 
           <nav className="space-y-1">

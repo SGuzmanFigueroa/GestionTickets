@@ -6,7 +6,16 @@ import type { ActivityItem } from "@/app/api/activity/route";
 
 const LAST_SEEN_KEY = "activity_last_seen";
 
-export default function NotificationBell() {
+const DEFAULT_BUTTON_CLASS =
+  "border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-nexa-blue dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white";
+
+export default function NotificationBell({
+  buttonClassName = DEFAULT_BUTTON_CLASS,
+  panelAlign = "right",
+}: {
+  buttonClassName?: string;
+  panelAlign?: "left" | "right";
+}) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -71,7 +80,7 @@ export default function NotificationBell() {
         type="button"
         onClick={toggle}
         aria-label="Notificaciones"
-        className="relative flex h-8 w-8 items-center justify-center rounded-full text-blue-100/80 transition-colors hover:bg-white/10 hover:text-white"
+        className={`relative flex h-9 w-9 items-center justify-center rounded-full transition-colors ${buttonClassName}`}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path
@@ -96,7 +105,11 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute left-0 z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <div
+          className={`absolute z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800 ${
+            panelAlign === "right" ? "right-0" : "left-0"
+          }`}
+        >
           <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
             Actividad reciente
           </div>
