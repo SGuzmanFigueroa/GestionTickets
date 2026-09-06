@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireProfile } from "@/lib/auth";
+import { sendTicketAssignedEmail } from "@/lib/email";
 
 export async function updateTicketStatus(formData: FormData) {
   const profile = await requireProfile();
@@ -64,6 +65,29 @@ export async function updateTicketAssignee(formData: FormData) {
       old_value: current.assignee_id,
       new_value: assigneeId || null,
     });
+  }
+
+  if (assigneeId && assigneeId !== current?.assignee_id) {
+    const [{ data: ticket }, { data: assignee }] = await Promise.all([
+      supabase.from("tickets").select("title, ticket_number, project_id").eq("id", ticketId).single(),
+      supabase.from("profiles").select("email").eq("id", assigneeId).single(),
+    ]);
+
+    if (ticket && assignee?.email) {
+      const { data: project } = await supabase
+        .from("projects")
+        .select("code")
+        .eq("id", ticket.project_id)
+        .single();
+
+      await sendTicketAssignedEmail({
+        to: assignee.email,
+        ticketCode: `${project?.code}-${ticket.ticket_number}`,
+        ticketTitle: ticket.title,
+        ticketId,
+        assignedByName: profile.full_name ?? profile.email,
+      });
+    }
   }
 
   redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Asignación actualizada.")}`);
