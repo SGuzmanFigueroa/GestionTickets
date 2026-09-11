@@ -1,11 +1,11 @@
-import { requireProfile, isLeader } from "@/lib/auth";
+import { requireProfile } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
 import NotificationBell from "@/components/NotificationBell";
 import LiveRefresh from "@/components/LiveRefresh";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireProfile();
-  const leader = profile.role !== "admin" && (await isLeader(profile.id));
+  const leader = profile.role === "lider";
 
   return (
     <div className="min-h-screen bg-nexa-gray dark:bg-slate-900 md:flex">

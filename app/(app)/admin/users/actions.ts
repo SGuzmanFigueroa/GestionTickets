@@ -15,8 +15,10 @@ export async function updateUserRole(formData: FormData) {
     redirect(`/admin/users?error=${encodeURIComponent("Rol inválido.")}`);
   }
 
-  if (!isAdmin && role === "admin") {
-    redirect(`/admin/users?error=${encodeURIComponent("Solo un admin puede volver a alguien admin.")}`);
+  if (!isAdmin && (role === "admin" || role === "lider")) {
+    redirect(
+      `/admin/users?error=${encodeURIComponent("Solo un admin puede asignar admin o líder.")}`,
+    );
   }
 
   const supabase = await createClient();

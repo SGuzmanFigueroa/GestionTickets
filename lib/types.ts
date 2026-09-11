@@ -1,9 +1,10 @@
-export type UserRole = "admin" | "qa" | "developer" | "backend" | "frontend";
+export type UserRole = "admin" | "lider" | "qa" | "developer" | "backend" | "frontend";
 
-export const USER_ROLES: UserRole[] = ["admin", "qa", "developer", "backend", "frontend"];
+export const USER_ROLES: UserRole[] = ["admin", "lider", "qa", "developer", "backend", "frontend"];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
+  lider: "Líder",
   qa: "QA",
   developer: "Developer",
   backend: "Backend",

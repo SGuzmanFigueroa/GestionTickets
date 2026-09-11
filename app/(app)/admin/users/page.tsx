@@ -8,6 +8,7 @@ import { deleteUser, updateUserRole } from "./actions";
 
 const ROLE_DOT: Record<UserRole, string> = {
   admin: "bg-nexa-navy",
+  lider: "bg-amber-500",
   qa: "bg-nexa-sky",
   developer: "bg-nexa-blue",
   backend: "bg-emerald-500",
@@ -21,7 +22,9 @@ export default async function AdminUsersPage({
 }) {
   const { error, success } = await searchParams;
   const { profile: admin, isAdmin } = await requireAdminOrLeader();
-  const assignableRoles = isAdmin ? USER_ROLES : USER_ROLES.filter((r) => r !== "admin");
+  const assignableRoles = isAdmin
+    ? USER_ROLES
+    : USER_ROLES.filter((r) => r !== "admin" && r !== "lider");
   const supabase = await createClient();
   const { data: users } = await supabase
     .from("profiles")
@@ -34,7 +37,8 @@ export default async function AdminUsersPage({
       <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
         Las cuentas nuevas entran con rol QA. Asígnales el rol correcto aquí (Admin, QA, Developer,
         Backend, Frontend).
-        {!isAdmin && " Como líder, no puedes tocar cuentas admin ni volver a nadie admin."}
+        {!isAdmin &&
+          " Como líder, no puedes tocar cuentas admin ni de otros líderes, ni volver a nadie admin o líder."}
       </p>
 
       {success && <SuccessBanner message={success} />}
@@ -62,7 +66,7 @@ export default async function AdminUsersPage({
                 </td>
                 <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{u.email}</td>
                 <td className="px-4 py-2.5">
-                  {!isAdmin && u.role === "admin" ? (
+                  {!isAdmin && (u.role === "admin" || u.role === "lider") ? (
                     <span className="text-xs text-slate-400">Solo un admin la edita</span>
                   ) : (
                     <form action={updateUserRole} className="flex items-center gap-2">

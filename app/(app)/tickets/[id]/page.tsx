@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile, isLeader } from "@/lib/auth";
+import { requireProfile } from "@/lib/auth";
 import { StatusBadge, SeverityBadge, PriorityBadge } from "@/components/Badge";
 import SubmitButton from "@/components/SubmitButton";
 import SuccessBanner from "@/components/SuccessBanner";
@@ -93,9 +93,9 @@ export default async function TicketDetailPage({
 
   const canManage =
     profile.role === "admin" ||
+    profile.role === "lider" ||
     t.reporter_id === profile.id ||
-    t.assignee_id === profile.id ||
-    (await isLeader(profile.id));
+    t.assignee_id === profile.id;
 
   return (
     <div className="max-w-3xl">
@@ -361,7 +361,7 @@ export default async function TicketDetailPage({
                   className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 >
                   <option value="">Sin definir</option>
-                  {USER_ROLES.filter((r) => r !== "admin").map((r) => (
+                  {USER_ROLES.filter((r) => r !== "admin" && r !== "lider").map((r) => (
                     <option key={r} value={r}>
                       {ROLE_LABELS[r]}
                     </option>
