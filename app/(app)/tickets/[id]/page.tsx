@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { requireProfile } from "@/lib/auth";
+import { requireProfile, isLeader } from "@/lib/auth";
 import { StatusBadge, SeverityBadge, PriorityBadge } from "@/components/Badge";
 import SubmitButton from "@/components/SubmitButton";
 import SuccessBanner from "@/components/SuccessBanner";
@@ -91,7 +91,11 @@ export default async function TicketDetailPage({
     return `cambió el asignado de "${nameOf(h.old_value)}" a "${nameOf(h.new_value)}"`;
   }
 
-  const canManage = profile.role === "admin" || t.reporter_id === profile.id || t.assignee_id === profile.id;
+  const canManage =
+    profile.role === "admin" ||
+    t.reporter_id === profile.id ||
+    t.assignee_id === profile.id ||
+    (await isLeader(profile.id));
 
   return (
     <div className="max-w-3xl">

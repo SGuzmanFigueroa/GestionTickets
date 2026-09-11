@@ -7,7 +7,7 @@ import NavLink from "./NavLink";
 import ThemeToggle from "./ThemeToggle";
 import NotificationBell from "./NotificationBell";
 
-export default function Sidebar({ profile }: { profile: Profile }) {
+export default function Sidebar({ profile, isLeader = false }: { profile: Profile; isLeader?: boolean }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
 
@@ -88,6 +88,17 @@ export default function Sidebar({ profile }: { profile: Profile }) {
                 <NavLink href="/admin/projects" onNavigate={close}>
                   Apps / Proyectos
                 </NavLink>
+                <NavLink href="/admin/users" onNavigate={close}>
+                  Usuarios y roles
+                </NavLink>
+              </div>
+            )}
+
+            {profile.role !== "admin" && isLeader && (
+              <div className="mt-6 space-y-1">
+                <p className="px-3 text-xs font-semibold uppercase tracking-wide text-blue-200/50">
+                  Líder
+                </p>
                 <NavLink href="/admin/users" onNavigate={close}>
                   Usuarios y roles
                 </NavLink>

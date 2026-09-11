@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdminOrLeader } from "@/lib/auth";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import SubmitButton from "@/components/SubmitButton";
 import SuccessBanner from "@/components/SuccessBanner";
@@ -20,7 +20,8 @@ export default async function AdminUsersPage({
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
   const { error, success } = await searchParams;
-  const admin = await requireAdmin();
+  const { profile: admin, isAdmin } = await requireAdminOrLeader();
+  const assignableRoles = isAdmin ? USER_ROLES : USER_ROLES.filter((r) => r !== "admin");
   const supabase = await createClient();
   const { data: users } = await supabase
     .from("profiles")
@@ -33,6 +34,7 @@ export default async function AdminUsersPage({
       <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
         Las cuentas nuevas entran con rol QA. Asígnales el rol correcto aquí (Admin, QA, Developer,
         Backend, Frontend).
+        {!isAdmin && " Como líder, no puedes tocar cuentas admin ni volver a nadie admin."}
       </p>
 
       {success && <SuccessBanner message={success} />}
@@ -60,29 +62,33 @@ export default async function AdminUsersPage({
                 </td>
                 <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{u.email}</td>
                 <td className="px-4 py-2.5">
-                  <form action={updateUserRole} className="flex items-center gap-2">
-                    <input type="hidden" name="user_id" value={u.id} />
-                    <select
-                      name="role"
-                      defaultValue={u.role}
-                      disabled={u.id === admin.id}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 disabled:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800/60"
-                    >
-                      {USER_ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {ROLE_LABELS[r]}
-                        </option>
-                      ))}
-                    </select>
-                    {u.id !== admin.id && (
-                      <SubmitButton variant="dark" pendingLabel="..." className="rounded-md px-2 py-1 text-xs">
-                        Guardar
-                      </SubmitButton>
-                    )}
-                  </form>
+                  {!isAdmin && u.role === "admin" ? (
+                    <span className="text-xs text-slate-400">Solo un admin la edita</span>
+                  ) : (
+                    <form action={updateUserRole} className="flex items-center gap-2">
+                      <input type="hidden" name="user_id" value={u.id} />
+                      <select
+                        name="role"
+                        defaultValue={u.role}
+                        disabled={u.id === admin.id}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 disabled:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800/60"
+                      >
+                        {assignableRoles.map((r) => (
+                          <option key={r} value={r}>
+                            {ROLE_LABELS[r]}
+                          </option>
+                        ))}
+                      </select>
+                      {u.id !== admin.id && (
+                        <SubmitButton variant="dark" pendingLabel="..." className="rounded-md px-2 py-1 text-xs">
+                          Guardar
+                        </SubmitButton>
+                      )}
+                    </form>
+                  )}
                 </td>
                 <td className="px-4 py-2.5">
-                  {u.id !== admin.id && (
+                  {isAdmin && u.id !== admin.id && (
                     <form action={deleteUser}>
                       <input type="hidden" name="user_id" value={u.id} />
                       <ConfirmSubmitButton

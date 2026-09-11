@@ -3,16 +3,20 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requireAdminOrLeader } from "@/lib/auth";
 import { USER_ROLES } from "@/lib/types";
 
 export async function updateUserRole(formData: FormData) {
-  await requireAdmin();
+  const { isAdmin } = await requireAdminOrLeader();
   const userId = String(formData.get("user_id") ?? "");
   const role = String(formData.get("role") ?? "");
 
   if (!USER_ROLES.includes(role as (typeof USER_ROLES)[number])) {
     redirect(`/admin/users?error=${encodeURIComponent("Rol inválido.")}`);
+  }
+
+  if (!isAdmin && role === "admin") {
+    redirect(`/admin/users?error=${encodeURIComponent("Solo un admin puede volver a alguien admin.")}`);
   }
 
   const supabase = await createClient();
