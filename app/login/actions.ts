@@ -56,10 +56,18 @@ export async function requestPasswordReset(formData: FormData) {
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/reset-password`,
+    redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
   });
 
   if (error) {
+    if (/security purposes|after \d+ seconds/i.test(error.message)) {
+      const seconds = error.message.match(/\d+/)?.[0] ?? "unos";
+      redirect(
+        `/login?error=${encodeURIComponent(
+          `Por seguridad, espera ${seconds} segundos antes de pedir otro link.`,
+        )}`,
+      );
+    }
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
