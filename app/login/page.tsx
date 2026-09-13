@@ -1,5 +1,5 @@
 import SubmitButton from "@/components/SubmitButton";
-import { signIn, signUp } from "./actions";
+import { signIn, signUp, requestPasswordReset } from "./actions";
 
 export default async function LoginPage({
   searchParams,
@@ -39,6 +39,7 @@ export default async function LoginPage({
             name="email"
             type="email"
             required
+            autoComplete="username"
             placeholder="correo@nexa.com"
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
           />
@@ -46,6 +47,7 @@ export default async function LoginPage({
             name="password"
             type="password"
             required
+            autoComplete="current-password"
             placeholder="Contraseña"
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
           />
@@ -56,6 +58,28 @@ export default async function LoginPage({
 
         <details className="rounded-xl border border-white/20 bg-white/95 p-5 shadow-lg shadow-nexa-navy/10">
           <summary className="cursor-pointer text-sm font-medium text-slate-700">
+            ¿Olvidaste tu contraseña?
+          </summary>
+          <form action={requestPasswordReset} className="mt-3 space-y-3">
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="username"
+              placeholder="correo@nexa.com"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
+            />
+            <SubmitButton variant="dark" pendingLabel="Enviando..." className="w-full rounded-md px-3 py-2 text-sm font-medium">
+              Enviar link de recuperación
+            </SubmitButton>
+            <p className="text-xs text-slate-400">
+              Te llegará un correo con un link para elegir una nueva contraseña.
+            </p>
+          </form>
+        </details>
+
+        <details className="rounded-xl border border-white/20 bg-white/95 p-5 shadow-lg shadow-nexa-navy/10">
+          <summary className="cursor-pointer text-sm font-medium text-slate-700">
             Crear cuenta nueva
           </summary>
           <form action={signUp} className="mt-3 space-y-3">
@@ -63,6 +87,7 @@ export default async function LoginPage({
               name="full_name"
               type="text"
               required
+              autoComplete="name"
               placeholder="Nombre completo"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
             />
@@ -70,6 +95,7 @@ export default async function LoginPage({
               name="email"
               type="email"
               required
+              autoComplete="username"
               placeholder="correo@nexa.com"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
             />
@@ -78,6 +104,7 @@ export default async function LoginPage({
               type="password"
               required
               minLength={6}
+              autoComplete="new-password"
               placeholder="Contraseña (mín. 6 caracteres)"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20"
             />

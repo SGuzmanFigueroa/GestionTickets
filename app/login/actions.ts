@@ -45,3 +45,27 @@ export async function signOut() {
   await supabase.auth.signOut();
   redirect("/login");
 }
+
+export async function requestPasswordReset(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+  if (!email) {
+    redirect(`/login?error=${encodeURIComponent("Escribe tu correo para recuperar la contraseña.")}`);
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/reset-password`,
+  });
+
+  if (error) {
+    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(
+    `/login?message=${encodeURIComponent(
+      "Si ese correo tiene una cuenta, te enviamos un link para restablecer la contraseña.",
+    )}`,
+  );
+}
