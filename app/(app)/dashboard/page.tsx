@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { StatusBadge, SeverityBadge, PriorityBadge } from "@/components/Badge";
+import AutoSubmitForm from "@/components/AutoSubmitForm";
 import {
   STATUS_LABELS,
   TICKET_STATUSES,
@@ -78,7 +79,7 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      <form className="mb-5 flex flex-wrap gap-2 text-sm" action="/dashboard">
+      <AutoSubmitForm className="mb-5 flex flex-wrap gap-2 text-sm" action="/dashboard">
         <select
           name="project"
           defaultValue={project ?? ""}
@@ -124,7 +125,7 @@ export default async function DashboardPage({
             Limpiar
           </Link>
         )}
-      </form>
+      </AutoSubmitForm>
 
       {error && (
         <p className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">

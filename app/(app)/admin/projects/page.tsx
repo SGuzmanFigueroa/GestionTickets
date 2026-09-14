@@ -13,10 +13,15 @@ export default async function AdminProjectsPage({
   const { error, success } = await searchParams;
   await requireAdmin();
   const supabase = await createClient();
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, name, slug, code, description, created_at")
-    .order("created_at", { ascending: false });
+  const [{ data: projects }, { data: leaders }] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, name, slug, code, description, created_at, leader_id")
+      .order("created_at", { ascending: false }),
+    supabase.from("profiles").select("id, full_name, email").eq("role", "lider").order("full_name"),
+  ]);
+
+  const leadersById = new Map((leaders ?? []).map((l) => [l.id, l]));
 
   return (
     <div className="max-w-2xl">
@@ -60,10 +65,30 @@ export default async function AdminProjectsPage({
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
+        <div className="min-w-[160px] flex-1 basis-full sm:basis-auto">
+          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Líder Nexa</label>
+          <select
+            name="leader_id"
+            defaultValue=""
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">Sin asignar</option>
+            {leaders?.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.full_name ?? l.email}
+              </option>
+            ))}
+          </select>
+        </div>
         <SubmitButton variant="primary" pendingLabel="Agregando..." className="rounded-md px-3 py-2 text-sm font-medium">
           Agregar app
         </SubmitButton>
       </form>
+      {leaders?.length === 0 && (
+        <p className="-mt-4 mb-6 text-xs text-slate-400">
+          Todavía no hay nadie con rol Líder — asígnalo en Usuarios y roles para poder elegirlo aquí.
+        </p>
+      )}
 
       <div className="space-y-2">
         {projects?.map((p) => (
@@ -78,6 +103,12 @@ export default async function AdminProjectsPage({
               <div>
                 <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{p.name}</p>
                 {p.description && <p className="text-xs text-slate-500 dark:text-slate-400">{p.description}</p>}
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  Líder:{" "}
+                  {(p.leader_id &&
+                    (leadersById.get(p.leader_id)?.full_name ?? leadersById.get(p.leader_id)?.email)) ||
+                    "Sin asignar"}
+                </p>
               </div>
             </div>
             <form action={deleteProject}>

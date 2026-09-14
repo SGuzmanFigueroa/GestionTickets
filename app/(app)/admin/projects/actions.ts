@@ -17,6 +17,7 @@ export async function createProject(formData: FormData) {
   const profile = await requireAdmin();
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
+  const leaderId = String(formData.get("leader_id") ?? "").trim();
   const code = String(formData.get("code") ?? "")
     .trim()
     .toUpperCase()
@@ -35,6 +36,7 @@ export async function createProject(formData: FormData) {
     slug: slugify(name),
     code,
     description: description || null,
+    leader_id: leaderId || null,
     created_by: profile.id,
   });
 
