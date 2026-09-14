@@ -37,7 +37,22 @@ export default async function AdminUsersPage({
     query = query.eq("role", role);
   }
 
-  const { data: users } = await query;
+  const [{ data: users }, { data: projectRows }] = await Promise.all([
+    query,
+    supabase
+      .from("team_member_projects")
+      .select("project:projects(code, name), member:team_members(profile_id)"),
+  ]);
+
+  const projectsByProfileId = new Map<string, string[]>();
+  for (const row of projectRows ?? []) {
+    const profileId = (row.member as unknown as { profile_id: string | null } | null)?.profile_id;
+    const code = (row.project as unknown as { code: string } | null)?.code;
+    if (!profileId || !code) continue;
+    const list = projectsByProfileId.get(profileId) ?? [];
+    list.push(code);
+    projectsByProfileId.set(profileId, list);
+  }
 
   return (
     <div className="max-w-3xl">
@@ -82,6 +97,7 @@ export default async function AdminUsersPage({
             <tr>
               <th className="px-4 py-2 font-medium">Nombre</th>
               <th className="px-4 py-2 font-medium">Correo</th>
+              <th className="px-4 py-2 font-medium">Proyecto</th>
               <th className="px-4 py-2 font-medium">Rol</th>
               <th className="px-4 py-2 font-medium"></th>
             </tr>
@@ -96,6 +112,22 @@ export default async function AdminUsersPage({
                   </div>
                 </td>
                 <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{u.email}</td>
+                <td className="px-4 py-2.5">
+                  {(projectsByProfileId.get(u.id) ?? []).length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {projectsByProfileId.get(u.id)!.map((code) => (
+                        <span
+                          key={code}
+                          className="rounded bg-nexa-light px-1.5 py-0.5 text-xs font-medium text-nexa-blue dark:bg-blue-950/40 dark:text-blue-300"
+                        >
+                          {code}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                  )}
+                </td>
                 <td className="px-4 py-2.5">
                   {!isAdmin && (u.role === "admin" || u.role === "lider") ? (
                     <span className="text-xs text-slate-400">Solo un admin la edita</span>
