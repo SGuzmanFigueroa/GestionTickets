@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { signOut } from "@/app/login/actions";
 import { ROLE_LABELS, type Profile } from "@/lib/types";
 import NavLink from "./NavLink";
@@ -12,6 +12,15 @@ import { ClipboardCheckIcon, FolderIcon, PlusIcon, TicketIcon, UsersIcon } from 
 export default function Sidebar({ profile, isLeader = false }: { profile: Profile; isLeader?: boolean }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") close();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
   const displayName = profile.full_name ?? profile.email;
 
   return (
