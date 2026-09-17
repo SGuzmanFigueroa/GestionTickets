@@ -2,14 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import { StatusBadge, SeverityBadge, PriorityBadge } from "@/components/Badge";
+import { StatusBadge, SeverityBadge, PriorityBadge, ProjectBadge } from "@/components/Badge";
 import SubmitButton from "@/components/SubmitButton";
 import SuccessBanner from "@/components/SuccessBanner";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import ImagePasteUpload from "@/components/ImagePasteUpload";
 import { formatDateTime } from "@/lib/format";
 import {
+  PRIORITY_LABELS,
   ROLE_LABELS,
+  SEVERITY_LABELS,
   STATUS_LABELS,
   TICKET_PRIORITIES,
   TICKET_SEVERITIES,
@@ -130,11 +132,9 @@ export default async function TicketDetailPage({
         <div className="p-6">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <StatusBadge status={t.status} label={STATUS_LABELS[t.status]} />
-          <SeverityBadge severity={t.severity} label={t.severity} />
-          <PriorityBadge priority={t.priority} label={t.priority} />
-          <span className="rounded-full bg-nexa-light px-2.5 py-0.5 text-xs font-medium text-nexa-blue">
-            {t.project?.name}
-          </span>
+          <SeverityBadge severity={t.severity} label={SEVERITY_LABELS[t.severity]} />
+          <PriorityBadge priority={t.priority} label={PRIORITY_LABELS[t.priority]} />
+          <ProjectBadge>{t.project?.name}</ProjectBadge>
           {t.target_role && (
             <span className="text-xs text-slate-400">→ {ROLE_LABELS[t.target_role]}</span>
           )}
@@ -332,7 +332,7 @@ export default async function TicketDetailPage({
                 >
                   {TICKET_SEVERITIES.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      {SEVERITY_LABELS[s]}
                     </option>
                   ))}
                 </select>
@@ -346,7 +346,7 @@ export default async function TicketDetailPage({
                 >
                   {TICKET_PRIORITIES.map((p) => (
                     <option key={p} value={p}>
-                      {p}
+                      {PRIORITY_LABELS[p]}
                     </option>
                   ))}
                 </select>
