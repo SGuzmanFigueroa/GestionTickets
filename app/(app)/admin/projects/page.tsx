@@ -1,9 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
-import SubmitButton from "@/components/SubmitButton";
 import SuccessBanner from "@/components/SuccessBanner";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
-import { createProject, deleteProject } from "./actions";
+import PageHeader from "@/components/ui/PageHeader";
+import EmptyState from "@/components/ui/EmptyState";
+import { DropdownMenu } from "@/components/ui/DropdownMenu";
+import NewProjectModal from "./NewProjectModal";
+import { deleteProject } from "./actions";
 
 export default async function AdminProjectsPage({
   searchParams,
@@ -24,108 +27,64 @@ export default async function AdminProjectsPage({
   const leadersById = new Map((leaders ?? []).map((l) => [l.id, l]));
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="mb-1 text-xl font-semibold text-nexa-navy dark:text-white">Apps / Proyectos</h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
-        Cada app que el equipo QA prueba (Inventra, y las que vengan después) vive aquí como un
-        proyecto separado.
-      </p>
+    <div>
+      <PageHeader
+        title="Proyectos"
+        description="Administra las aplicaciones y productos que prueba el equipo QA."
+        actions={<NewProjectModal leaders={leaders ?? []} />}
+      />
 
       {success && <SuccessBanner message={success} />}
-      {error && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
-
-      <form
-        action={createProject}
-        className="mb-6 flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-      >
-        <div className="min-w-[160px] flex-1 basis-full sm:basis-auto">
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Nombre de la app</label>
-          <input
-            name="name"
-            required
-            placeholder="Ej: Inventra"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          />
-        </div>
-        <div className="w-28 basis-full sm:basis-auto">
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Código</label>
-          <input
-            name="code"
-            required
-            maxLength={5}
-            placeholder="Ej: INV"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          />
-        </div>
-        <div className="min-w-[160px] flex-1 basis-full sm:basis-auto">
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Descripción</label>
-          <input
-            name="description"
-            placeholder="Opcional"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          />
-        </div>
-        <div className="min-w-[160px] flex-1 basis-full sm:basis-auto">
-          <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Líder Nexa</label>
-          <select
-            name="leader_id"
-            defaultValue=""
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          >
-            <option value="">Sin asignar</option>
-            {leaders?.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.full_name ?? l.email}
-              </option>
-            ))}
-          </select>
-        </div>
-        <SubmitButton variant="primary" pendingLabel="Agregando..." className="rounded-md px-3 py-2 text-sm font-medium">
-          Agregar app
-        </SubmitButton>
-      </form>
-      {leaders?.length === 0 && (
-        <p className="-mt-4 mb-6 text-xs text-slate-400">
-          Todavía no hay nadie con rol Líder — asígnalo en Usuarios y roles para poder elegirlo aquí.
-        </p>
+      {error && (
+        <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>
       )}
 
-      <div className="space-y-2">
-        {projects?.map((p) => (
-          <div
-            key={p.id}
-            className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-nexa-light text-xs font-semibold text-nexa-blue">
-                {p.code}
-              </span>
-              <div>
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{p.name}</p>
-                {p.description && <p className="text-xs text-slate-500 dark:text-slate-400">{p.description}</p>}
-                <p className="text-xs text-slate-400 dark:text-slate-500">
-                  Líder:{" "}
-                  {(p.leader_id &&
-                    (leadersById.get(p.leader_id)?.full_name ?? leadersById.get(p.leader_id)?.email)) ||
-                    "Sin asignar"}
+      {projects?.length === 0 ? (
+        <EmptyState
+          title="Todavía no has agregado ninguna app"
+          description="Crea la primera para que el equipo QA pueda empezar a reportar tickets y casos de prueba."
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {projects?.map((p) => {
+            const leader = p.leader_id ? leadersById.get(p.leader_id) : null;
+            return (
+              <div
+                key={p.id}
+                className="flex flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800"
+              >
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-nexa-light text-xs font-semibold text-nexa-blue dark:bg-blue-950/40 dark:text-blue-300">
+                    {p.code}
+                  </span>
+                  <DropdownMenu label={`Más acciones para ${p.name}`}>
+                    <form action={deleteProject}>
+                      <input type="hidden" name="id" value={p.id} />
+                      <ConfirmSubmitButton
+                        title="¿Eliminar proyecto?"
+                        confirmMessage={`Esta acción puede afectar registros asociados a "${p.name}" y no se puede deshacer.`}
+                        confirmLabel="Eliminar proyecto"
+                        className="block w-full px-3 py-1.5 text-left text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                      >
+                        Eliminar
+                      </ConfirmSubmitButton>
+                    </form>
+                  </DropdownMenu>
+                </div>
+
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{p.name}</p>
+                {p.description && (
+                  <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{p.description}</p>
+                )}
+
+                <p className="mt-auto pt-3 text-xs text-slate-400 dark:text-slate-500">
+                  Líder: {leader?.full_name ?? leader?.email ?? "Sin asignar"}
                 </p>
               </div>
-            </div>
-            <form action={deleteProject}>
-              <input type="hidden" name="id" value={p.id} />
-              <ConfirmSubmitButton
-                confirmMessage={`¿Eliminar la app "${p.name}"? Esto no se puede deshacer.`}
-                className="text-xs text-red-500 hover:underline"
-              >
-                Eliminar
-              </ConfirmSubmitButton>
-            </form>
-          </div>
-        ))}
-        {projects?.length === 0 && (
-          <p className="text-sm text-slate-400">Todavía no has agregado ninguna app.</p>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

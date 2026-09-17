@@ -8,48 +8,43 @@ const SIZE_STYLES = {
 
 type Size = keyof typeof SIZE_STYLES;
 
-type BaseProps = {
+type ButtonProps = {
   variant?: ButtonVariant;
   size?: Size;
   className?: string;
   children: React.ReactNode;
-};
-
-type LinkButtonProps = BaseProps & {
-  href: string;
-};
-
-type PlainButtonProps = BaseProps & {
-  href?: undefined;
+  /** Renders as a `Link` when set; otherwise a plain (non-submit) button. */
+  href?: string;
   onClick?: () => void;
   disabled?: boolean;
-  "aria-label"?: string;
   type?: "button" | "submit";
+  "aria-label"?: string;
 };
 
 /** A styled trigger that is not a form submit — either a `Link` (href) or a plain button (e.g. to open a Modal/AlertDialog). */
-export function Button(props: LinkButtonProps | PlainButtonProps) {
-  const { variant = "primary", size = "md", className = "", children } = props;
+export function Button({
+  variant = "primary",
+  size = "md",
+  className = "",
+  children,
+  href,
+  onClick,
+  disabled,
+  type = "button",
+  "aria-label": ariaLabel,
+}: ButtonProps) {
   const classes = `${BUTTON_BASE_CLASS} ${SIZE_STYLES[size]} ${BUTTON_VARIANT_STYLES[variant]} ${className}`;
 
-  if (props.href) {
+  if (href) {
     return (
-      <Link href={props.href} className={classes}>
+      <Link href={href} className={classes} aria-label={ariaLabel}>
         {children}
       </Link>
     );
   }
 
-  const { onClick, disabled, type = "button" } = props;
-
   return (
-    <button
-      type={type}
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={props["aria-label"]}
-      className={classes}
-    >
+    <button type={type} onClick={onClick} disabled={disabled} aria-label={ariaLabel} className={classes}>
       {children}
     </button>
   );

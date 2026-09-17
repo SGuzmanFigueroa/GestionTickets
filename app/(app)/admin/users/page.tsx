@@ -5,11 +5,15 @@ import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import SuccessBanner from "@/components/SuccessBanner";
 import AutoSubmitForm from "@/components/AutoSubmitForm";
 import RoleSelect from "@/components/RoleSelect";
+import PageHeader from "@/components/ui/PageHeader";
+import SearchInput from "@/components/ui/SearchInput";
+import Avatar from "@/components/ui/Avatar";
+import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import { ROLE_LABELS, USER_ROLES, type Profile, type UserRole } from "@/lib/types";
 import { deleteUser, updateUserRole } from "./actions";
 
 const ROLE_DOT: Record<UserRole, string> = {
-  admin: "bg-nexa-navy",
+  admin: "bg-nexa-navy dark:bg-blue-200",
   lider: "bg-amber-500",
   qa: "bg-nexa-sky",
   developer: "bg-nexa-blue",
@@ -54,10 +58,16 @@ export default async function AdminUsersPage({
     projectsByProfileId.set(profileId, list);
   }
 
+  const rows = (users as Profile[] | null) ?? [];
+
   return (
-    <div className="max-w-3xl">
-      <h1 className="mb-1 text-xl font-semibold text-nexa-navy dark:text-white">Usuarios y roles</h1>
-      <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
+    <div>
+      <PageHeader
+        title="Equipo"
+        description="Administra usuarios, proyectos asignados y permisos."
+      />
+
+      <p className="-mt-4 mb-6 text-sm text-slate-500 dark:text-slate-400">
         Las cuentas nuevas entran con rol QA. Asígnales el rol correcto aquí (Admin, QA, Developer,
         Backend, Frontend).
         {!isAdmin &&
@@ -65,100 +75,130 @@ export default async function AdminUsersPage({
       </p>
 
       {success && <SuccessBanner message={success} />}
-      {error && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
+      {error && (
+        <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>
+      )}
 
-      <AutoSubmitForm className="mb-4 flex flex-wrap items-center gap-2 text-sm" action="/admin/users">
-        <select
-          name="role"
-          defaultValue={role ?? ""}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        >
-          <option value="">Todos los roles</option>
-          {USER_ROLES.map((r) => (
-            <option key={r} value={r}>
-              {ROLE_LABELS[r]}
-            </option>
-          ))}
-        </select>
-        {role && (
-          <Link
-            href="/admin/users"
-            className="rounded-md px-3 py-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/admin/users">
+          <select
+            name="role"
+            defaultValue={role ?? ""}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           >
-            Limpiar
-          </Link>
-        )}
-      </AutoSubmitForm>
+            <option value="">Todos los roles</option>
+            {USER_ROLES.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </select>
+          {role && (
+            <Link
+              href="/admin/users"
+              className="rounded-md px-3 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              Limpiar
+            </Link>
+          )}
+        </AutoSubmitForm>
+
+        <SearchInput
+          placeholder="Buscar usuario..."
+          scopeSelector="#users-table-body"
+          noResultsSelector="#users-no-local-matches"
+          className="sm:w-64"
+        />
+      </div>
 
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300">
-            <tr>
-              <th className="px-4 py-2 font-medium">Nombre</th>
-              <th className="px-4 py-2 font-medium">Correo</th>
-              <th className="px-4 py-2 font-medium">Proyecto</th>
-              <th className="px-4 py-2 font-medium">Rol</th>
-              <th className="px-4 py-2 font-medium"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {(users as Profile[] | null)?.map((u) => (
-              <tr key={u.id} className="hover:bg-nexa-light/20 dark:hover:bg-slate-700/40">
-                <td className="px-4 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${ROLE_DOT[u.role]}`} />
-                    <span className="text-slate-800 dark:text-slate-100">{u.full_name ?? "—"}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{u.email}</td>
-                <td className="px-4 py-2.5">
-                  {(projectsByProfileId.get(u.id) ?? []).length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {projectsByProfileId.get(u.id)!.map((code) => (
-                        <span
-                          key={code}
-                          className="rounded bg-nexa-light px-1.5 py-0.5 text-xs font-medium text-nexa-blue dark:bg-blue-950/40 dark:text-blue-300"
-                        >
-                          {code}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-slate-400">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-2.5">
-                  {!isAdmin && (u.role === "admin" || u.role === "lider") ? (
-                    <span className="text-xs text-slate-400">Solo un admin la edita</span>
-                  ) : (
-                    <RoleSelect
-                      action={updateUserRole}
-                      userId={u.id}
-                      currentRole={u.role}
-                      assignableRoles={assignableRoles}
-                      disabled={u.id === admin.id}
-                    />
-                  )}
-                </td>
-                <td className="px-4 py-2.5">
-                  {isAdmin && u.id !== admin.id && (
-                    <form action={deleteUser}>
-                      <input type="hidden" name="user_id" value={u.id} />
-                      <ConfirmSubmitButton
-                        confirmMessage={`¿Eliminar la cuenta de ${u.full_name ?? u.email}? Esto no se puede deshacer.`}
-                        className="text-xs text-red-500 hover:underline"
-                      >
-                        Eliminar
-                      </ConfirmSubmitButton>
-                    </form>
-                  )}
-                </td>
+          <table className="w-full min-w-[640px] text-left text-sm">
+            <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300">
+              <tr>
+                <th scope="col" className="px-4 py-2.5 font-medium">Usuario</th>
+                <th scope="col" className="px-4 py-2.5 font-medium">Proyecto</th>
+                <th scope="col" className="px-4 py-2.5 font-medium">Rol</th>
+                <th scope="col" className="px-4 py-2.5 font-medium"><span className="sr-only">Acciones</span></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody id="users-table-body" className="divide-y divide-slate-100 dark:divide-slate-700">
+              {rows.map((u) => {
+                const displayName = u.full_name ?? u.email;
+                return (
+                  <tr
+                    key={u.id}
+                    data-search-row
+                    data-search-text={`${u.full_name ?? ""} ${u.email}`}
+                    className="h-14 transition-colors hover:bg-nexa-light/20 dark:hover:bg-slate-700/40"
+                  >
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar name={displayName} size="sm" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ROLE_DOT[u.role]}`} />
+                            <span className="truncate text-slate-800 dark:text-slate-100">{displayName}</span>
+                          </div>
+                          <p className="truncate text-xs text-slate-400 dark:text-slate-500">{u.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {(projectsByProfileId.get(u.id) ?? []).length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {projectsByProfileId.get(u.id)!.map((code) => (
+                            <span
+                              key={code}
+                              className="rounded bg-nexa-light px-1.5 py-0.5 text-xs font-medium text-nexa-blue dark:bg-blue-950/40 dark:text-blue-300"
+                            >
+                              {code}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 dark:text-slate-500">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      {!isAdmin && (u.role === "admin" || u.role === "lider") ? (
+                        <span className="text-xs text-slate-400 dark:text-slate-500">Solo un admin la edita</span>
+                      ) : (
+                        <RoleSelect
+                          action={updateUserRole}
+                          userId={u.id}
+                          currentRole={u.role}
+                          assignableRoles={assignableRoles}
+                          disabled={u.id === admin.id}
+                        />
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {isAdmin && u.id !== admin.id && (
+                        <DropdownMenu label={`Más acciones para ${displayName}`}>
+                          <form action={deleteUser}>
+                            <input type="hidden" name="user_id" value={u.id} />
+                            <ConfirmSubmitButton
+                              title="¿Eliminar usuario?"
+                              confirmMessage={`Esta acción puede afectar registros asociados a "${displayName}" y no se puede deshacer.`}
+                              confirmLabel="Eliminar usuario"
+                              className="block w-full px-3 py-1.5 text-left text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                            >
+                              Eliminar usuario
+                            </ConfirmSubmitButton>
+                          </form>
+                        </DropdownMenu>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+        <p id="users-no-local-matches" className="hidden px-4 py-8 text-center text-sm text-slate-400">
+          Ningún usuario visible coincide con tu búsqueda.
+        </p>
       </div>
     </div>
   );
