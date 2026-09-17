@@ -6,10 +6,13 @@ import { ROLE_LABELS, type Profile } from "@/lib/types";
 import NavLink from "./NavLink";
 import ThemeToggle from "./ThemeToggle";
 import NotificationBell from "./NotificationBell";
+import Avatar from "@/components/ui/Avatar";
+import { ClipboardCheckIcon, FolderIcon, PlusIcon, TicketIcon, UsersIcon } from "@/components/ui/icons";
 
 export default function Sidebar({ profile, isLeader = false }: { profile: Profile; isLeader?: boolean }) {
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const displayName = profile.full_name ?? profile.email;
 
   return (
     <>
@@ -70,13 +73,16 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
           </div>
 
           <nav className="space-y-1">
-            <NavLink href="/dashboard" onNavigate={close}>
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-blue-200/50">
+              Principal
+            </p>
+            <NavLink href="/dashboard" icon={<TicketIcon />} onNavigate={close}>
               Tickets
             </NavLink>
-            <NavLink href="/tickets/new" onNavigate={close}>
-              + Nuevo ticket
+            <NavLink href="/tickets/new" icon={<PlusIcon />} onNavigate={close}>
+              Nuevo ticket
             </NavLink>
-            <NavLink href="/test-cases" onNavigate={close}>
+            <NavLink href="/test-cases" icon={<ClipboardCheckIcon />} onNavigate={close}>
               Casos de prueba
             </NavLink>
 
@@ -85,10 +91,10 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
                 <p className="px-3 text-xs font-semibold uppercase tracking-wide text-blue-200/50">
                   Admin
                 </p>
-                <NavLink href="/admin/projects" onNavigate={close}>
-                  Apps / Proyectos
+                <NavLink href="/admin/projects" icon={<FolderIcon />} onNavigate={close}>
+                  Proyectos
                 </NavLink>
-                <NavLink href="/admin/users" onNavigate={close}>
+                <NavLink href="/admin/users" icon={<UsersIcon />} onNavigate={close}>
                   Usuarios y roles
                 </NavLink>
               </div>
@@ -99,7 +105,7 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
                 <p className="px-3 text-xs font-semibold uppercase tracking-wide text-blue-200/50">
                   Líder
                 </p>
-                <NavLink href="/admin/users" onNavigate={close}>
+                <NavLink href="/admin/users" icon={<UsersIcon />} onNavigate={close}>
                   Usuarios y roles
                 </NavLink>
               </div>
@@ -109,13 +115,9 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
 
         <div className="space-y-3 border-t border-white/10 pt-4">
           <div className="flex items-center gap-2 px-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-nexa-sky/20 text-xs font-semibold text-nexa-sky">
-              {(profile.full_name ?? profile.email).slice(0, 2).toUpperCase()}
-            </span>
+            <Avatar name={displayName} className="ring-1 ring-white/10" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-white">
-                {profile.full_name ?? profile.email}
-              </p>
+              <p className="truncate text-sm font-medium text-white">{displayName}</p>
               <p className="text-xs text-blue-200/70">{ROLE_LABELS[profile.role]}</p>
             </div>
           </div>

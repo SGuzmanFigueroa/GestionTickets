@@ -40,8 +40,22 @@ export const STATUS_LABELS: Record<TicketStatus, string> = {
 export type TicketSeverity = "critical" | "high" | "medium" | "low";
 export const TICKET_SEVERITIES: TicketSeverity[] = ["critical", "high", "medium", "low"];
 
+export const SEVERITY_LABELS: Record<TicketSeverity, string> = {
+  critical: "Crítica",
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
+};
+
 export type TicketPriority = "urgent" | "high" | "medium" | "low";
 export const TICKET_PRIORITIES: TicketPriority[] = ["urgent", "high", "medium", "low"];
+
+export const PRIORITY_LABELS: Record<TicketPriority, string> = {
+  urgent: "Urgente",
+  high: "Alta",
+  medium: "Media",
+  low: "Baja",
+};
 
 export interface Profile {
   id: string;

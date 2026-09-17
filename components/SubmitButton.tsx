@@ -1,14 +1,7 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-
-const VARIANT_STYLES = {
-  primary: "bg-nexa-blue text-white shadow-sm shadow-nexa-blue/30 hover:bg-nexa-navy",
-  dark: "bg-nexa-navy text-white hover:bg-slate-900",
-  danger: "bg-red-600 text-white hover:bg-red-700",
-  ghost: "text-slate-500 hover:bg-slate-100",
-  "danger-ghost": "text-red-500 hover:underline",
-} as const;
+import { BUTTON_VARIANT_STYLES, type ButtonVariant } from "@/components/ui/buttonStyles";
 
 export default function SubmitButton({
   variant = "primary",
@@ -16,7 +9,7 @@ export default function SubmitButton({
   className = "",
   children,
 }: {
-  variant?: keyof typeof VARIANT_STYLES;
+  variant?: ButtonVariant;
   pendingLabel?: string;
   className?: string;
   children: React.ReactNode;
@@ -27,7 +20,7 @@ export default function SubmitButton({
     <button
       type="submit"
       disabled={pending}
-      className={`inline-flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 ${VARIANT_STYLES[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 transition-all duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-70 ${BUTTON_VARIANT_STYLES[variant]} ${className}`}
     >
       {pending && (
         <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">

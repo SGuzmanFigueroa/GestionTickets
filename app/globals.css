@@ -13,6 +13,21 @@
   --nexa-sky: #29b6f6;
   --nexa-light: #e3f2fd;
   --nexa-gray: #f5f7fa;
+
+  /* Superficies y bordes neutros, reutilizados por el design system */
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --border: #e2e8f0;
+  --text-muted: #64748b;
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+  --surface: #1e293b;
+  --surface-muted: #172033;
+  --border: #334155;
+  --text-muted: #94a3b8;
 }
 
 @theme inline {
@@ -23,6 +38,12 @@
   --color-nexa-sky: var(--nexa-sky);
   --color-nexa-light: var(--nexa-light);
   --color-nexa-gray: var(--nexa-gray);
+  --color-primary: var(--nexa-blue);
+  --color-primary-hover: var(--nexa-navy);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-text-muted: var(--text-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -30,10 +51,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-.dark body {
-  background: #0f172a;
-  color: #e2e8f0;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
