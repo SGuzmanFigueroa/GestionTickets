@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import { TestCaseStatusBadge } from "@/components/Badge";
+import { TestCaseStatusBadge, ProjectBadge } from "@/components/Badge";
 import SubmitButton from "@/components/SubmitButton";
 import SuccessBanner from "@/components/SuccessBanner";
 import { formatDateTime } from "@/lib/format";
@@ -72,9 +72,7 @@ export default async function TestCaseDetailPage({
         <div className="p-6">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <TestCaseStatusBadge status={tc.status} label={TEST_CASE_STATUS_LABELS[tc.status]} />
-            <span className="rounded-full bg-nexa-light px-2.5 py-0.5 text-xs font-medium text-nexa-blue">
-              {tc.project?.name}
-            </span>
+            <ProjectBadge>{tc.project?.name}</ProjectBadge>
           </div>
 
           <h1 className="mb-1 text-xl font-semibold text-nexa-navy dark:text-white">{tc.title}</h1>

@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { TestCaseStatusBadge } from "@/components/Badge";
+import { TestCaseStatusBadge, ProjectBadge } from "@/components/Badge";
+import AutoSubmitForm from "@/components/AutoSubmitForm";
+import PageHeader from "@/components/ui/PageHeader";
+import MetricCard from "@/components/ui/MetricCard";
+import EmptyState from "@/components/ui/EmptyState";
+import SearchInput from "@/components/ui/SearchInput";
+import { Button } from "@/components/ui/Button";
+import { PlusIcon, ClipboardCheckIcon } from "@/components/ui/icons";
 import { formatDate } from "@/lib/format";
 import {
   TEST_CASE_STATUS_LABELS,
@@ -32,115 +39,177 @@ export default async function TestCasesPage({
   if (status) query = query.eq("status", status);
 
   const { data: cases, error } = await query;
+  const hasFilters = Boolean(project || status);
+  const rows = (cases as TestCaseWithRelations[] | null) ?? [];
+
+  const stats = {
+    total: rows.length,
+    notRun: rows.filter((c) => c.status === "not_run").length,
+    passed: rows.filter((c) => c.status === "passed").length,
+    failed: rows.filter((c) => c.status === "failed").length,
+  };
 
   return (
-    <div className="max-w-5xl">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-nexa-navy dark:text-white">Casos de prueba</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Casos de QA por app, con su último resultado</p>
-        </div>
-        <Link
-          href="/test-cases/new"
-          className="self-start rounded-md bg-nexa-blue px-3 py-2 text-sm font-medium text-white shadow-sm shadow-nexa-blue/30 transition-colors hover:bg-nexa-navy sm:self-auto"
-        >
-          + Nuevo caso
-        </Link>
+    <div>
+      <PageHeader
+        title="Casos de prueba"
+        description="Gestiona, ejecuta y consulta los casos de prueba de tus proyectos."
+        actions={
+          <Button href="/test-cases/new" variant="primary">
+            <PlusIcon /> Nuevo caso
+          </Button>
+        }
+      />
+
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MetricCard label="Total" value={stats.total} icon={<ClipboardCheckIcon />} />
+        <MetricCard label="Sin ejecutar" value={stats.notRun} />
+        <MetricCard label="Aprobados" value={stats.passed} tone="primary" />
+        <MetricCard label="Fallidos" value={stats.failed} tone="danger" />
       </div>
 
-      <form className="mb-5 flex flex-wrap gap-2 text-sm" action="/test-cases">
-        <select
-          name="project"
-          defaultValue={project ?? ""}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        >
-          <option value="">Todas las apps</option>
-          {projects?.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-
-        <select
-          name="status"
-          defaultValue={status ?? ""}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        >
-          <option value="">Todos los resultados</option>
-          {TEST_CASE_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {TEST_CASE_STATUS_LABELS[s]}
-            </option>
-          ))}
-        </select>
-
-        <button
-          type="submit"
-          className="rounded-md bg-nexa-navy px-3 py-1.5 font-medium text-white hover:bg-slate-900"
-        >
-          Filtrar
-        </button>
-        {(project || status) && (
-          <Link
-            href="/test-cases"
-            className="rounded-md px-3 py-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <AutoSubmitForm className="flex flex-wrap gap-2 text-sm" action="/test-cases">
+          <select
+            name="project"
+            defaultValue={project ?? ""}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           >
-            Limpiar
-          </Link>
-        )}
-      </form>
+            <option value="">Todas las apps</option>
+            {projects?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            name="status"
+            defaultValue={status ?? ""}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">Todos los resultados</option>
+            {TEST_CASE_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {TEST_CASE_STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+
+          {hasFilters && (
+            <Link
+              href="/test-cases"
+              className="rounded-md px-3 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            >
+              Limpiar filtros
+            </Link>
+          )}
+        </AutoSubmitForm>
+
+        <SearchInput
+          placeholder="Buscar por título..."
+          scopeSelector="#test-cases-results"
+          noResultsSelector="#test-cases-no-local-matches"
+          className="sm:w-64"
+        />
+      </div>
 
       {error && (
-        <p className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
           Error cargando casos de prueba: {error.message}
         </p>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm">
-          <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300">
-            <tr>
-              <th className="px-4 py-2 font-medium">Título</th>
-              <th className="px-4 py-2 font-medium">App</th>
-              <th className="px-4 py-2 font-medium">Resultado</th>
-              <th className="px-4 py-2 font-medium">Última ejecución</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-            {(cases as TestCaseWithRelations[] | null)?.map((c) => (
-              <tr key={c.id} className="transition-colors hover:bg-nexa-light/30 dark:hover:bg-slate-700/40">
-                <td className="px-4 py-2.5">
-                  <Link
-                    href={`/test-cases/${c.id}`}
-                    className="font-medium text-slate-800 hover:text-nexa-blue hover:underline dark:text-slate-100"
-                  >
-                    {c.title}
-                  </Link>
-                </td>
-                <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">{c.project?.name}</td>
-                <td className="px-4 py-2.5">
+      {rows.length === 0 ? (
+        <EmptyState
+          title="No hay casos de prueba"
+          description={
+            hasFilters
+              ? "No hay casos que coincidan con estos filtros."
+              : "Todavía no se han registrado casos de prueba para este proyecto."
+          }
+          action={
+            !hasFilters && (
+              <Button href="/test-cases/new" variant="primary" size="sm">
+                <PlusIcon /> Crear caso
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <div id="test-cases-results">
+          <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:block">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300">
+                  <tr>
+                    <th scope="col" className="px-4 py-2.5 font-medium">Caso</th>
+                    <th scope="col" className="px-4 py-2.5 font-medium">Proyecto</th>
+                    <th scope="col" className="px-4 py-2.5 font-medium">Resultado</th>
+                    <th scope="col" className="px-4 py-2.5 font-medium">Última ejecución</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {rows.map((c) => (
+                    <tr
+                      key={c.id}
+                      data-search-row
+                      data-search-text={c.title}
+                      className="h-14 transition-colors hover:bg-nexa-light/30 dark:hover:bg-slate-700/40"
+                    >
+                      <td className="max-w-[320px] px-4 py-2.5">
+                        <Link
+                          href={`/test-cases/${c.id}`}
+                          className="block truncate font-medium text-slate-800 hover:text-nexa-blue hover:underline dark:text-slate-100"
+                        >
+                          {c.title}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <ProjectBadge>{c.project?.name}</ProjectBadge>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <TestCaseStatusBadge status={c.status} label={TEST_CASE_STATUS_LABELS[c.status]} />
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">
+                        {c.last_run_at
+                          ? `${c.last_run_by_profile?.full_name ?? c.last_run_by_profile?.email ?? "usuario eliminado"} · ${formatDate(c.last_run_at)}`
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p id="test-cases-no-local-matches" className="hidden px-4 py-8 text-center text-sm text-slate-400">
+              Ningún caso visible coincide con tu búsqueda.
+            </p>
+          </div>
+
+          <div className="space-y-3 sm:hidden">
+            {rows.map((c) => (
+              <Link
+                key={c.id}
+                href={`/test-cases/${c.id}`}
+                data-search-row
+                data-search-text={c.title}
+                className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800"
+              >
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <ProjectBadge>{c.project?.name}</ProjectBadge>
                   <TestCaseStatusBadge status={c.status} label={TEST_CASE_STATUS_LABELS[c.status]} />
-                </td>
-                <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">
+                </div>
+                <p className="mb-1 text-sm font-medium text-slate-800 dark:text-slate-100">{c.title}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
                   {c.last_run_at
                     ? `${c.last_run_by_profile?.full_name ?? c.last_run_by_profile?.email ?? "usuario eliminado"} · ${formatDate(c.last_run_at)}`
-                    : "—"}
-                </td>
-              </tr>
+                    : "Todavía no se ha ejecutado"}
+                </p>
+              </Link>
             ))}
-            {cases?.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
-                  No hay casos de prueba con estos filtros.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

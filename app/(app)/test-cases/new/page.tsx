@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import SubmitButton from "@/components/SubmitButton";
+import EmptyState from "@/components/ui/EmptyState";
 import { createTestCase } from "./actions";
 
 export default async function NewTestCasePage({
@@ -21,10 +23,10 @@ export default async function NewTestCasePage({
       {error && <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>}
 
       {!projects?.length ? (
-        <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-700">
-          Todavía no hay ninguna app registrada. Un admin debe crear una en Admin → Apps / Proyectos
-          antes de poder registrar casos de prueba.
-        </p>
+        <EmptyState
+          title="Todavía no hay ninguna app registrada"
+          description="Un admin debe crear una en Proyectos antes de poder registrar casos de prueba."
+        />
       ) : (
         <form
           action={createTestCase}
@@ -91,13 +93,21 @@ export default async function NewTestCasePage({
             />
           </div>
 
-          <SubmitButton
-            variant="primary"
-            pendingLabel="Creando caso..."
-            className="w-full rounded-md px-3 py-2 text-sm font-medium"
-          >
-            Crear caso de prueba
-          </SubmitButton>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Link
+              href="/test-cases"
+              className="rounded-md px-4 py-2 text-center text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancelar
+            </Link>
+            <SubmitButton
+              variant="primary"
+              pendingLabel="Creando caso..."
+              className="rounded-md px-4 py-2 text-sm font-medium"
+            >
+              Crear caso de prueba
+            </SubmitButton>
+          </div>
         </form>
       )}
     </div>
