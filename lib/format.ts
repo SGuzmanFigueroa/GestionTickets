@@ -10,3 +10,8 @@ export function formatDateTime(value: string) {
 export function formatDate(value: string) {
   return new Date(value).toLocaleDateString("es-PE", { timeZone: LIMA_TIME_ZONE });
 }
+
+/** Días completos transcurridos desde una fecha ISO hasta hoy. */
+export function daysSince(iso: string): number {
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000)));
+}

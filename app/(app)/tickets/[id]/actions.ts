@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireProfile } from "@/lib/auth";
 import { sendTicketAssignedEmail } from "@/lib/email";
+import { ticketPermissions } from "@/lib/ticket-permissions";
 
 export async function updateTicketStatus(formData: FormData) {
   const profile = await requireProfile();
@@ -13,9 +14,13 @@ export async function updateTicketStatus(formData: FormData) {
 
   const { data: current } = await supabase
     .from("tickets")
-    .select("status")
+    .select("status, assignee_id, reporter_id")
     .eq("id", ticketId)
     .single();
+
+  if (!current || !ticketPermissions(profile, current).canChangeStatus) {
+    redirect(`/tickets/${ticketId}?error=${encodeURIComponent("No tienes permiso para cambiar el estado de este ticket.")}`);
+  }
 
   const { error } = await supabase.from("tickets").update({ status }).eq("id", ticketId);
 
@@ -23,15 +28,13 @@ export async function updateTicketStatus(formData: FormData) {
     redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
   }
 
-  if (current) {
-    await supabase.from("ticket_history").insert({
-      ticket_id: ticketId,
-      actor_id: profile.id,
-      field: "status",
-      old_value: current.status,
-      new_value: status,
-    });
-  }
+  await supabase.from("ticket_history").insert({
+    ticket_id: ticketId,
+    actor_id: profile.id,
+    field: "status",
+    old_value: current.status,
+    new_value: status,
+  });
 
   redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Estado actualizado.")}`);
 }
@@ -44,9 +47,13 @@ export async function updateTicketAssignee(formData: FormData) {
 
   const { data: current } = await supabase
     .from("tickets")
-    .select("assignee_id")
+    .select("status, assignee_id, reporter_id")
     .eq("id", ticketId)
     .single();
+
+  if (!current || !ticketPermissions(profile, current).canChangeAssignee) {
+    redirect(`/tickets/${ticketId}?error=${encodeURIComponent("No tienes permiso para cambiar la persona asignada de este ticket.")}`);
+  }
 
   const { error } = await supabase
     .from("tickets")
@@ -57,17 +64,15 @@ export async function updateTicketAssignee(formData: FormData) {
     redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
   }
 
-  if (current) {
-    await supabase.from("ticket_history").insert({
-      ticket_id: ticketId,
-      actor_id: profile.id,
-      field: "assignee",
-      old_value: current.assignee_id,
-      new_value: assigneeId || null,
-    });
-  }
+  await supabase.from("ticket_history").insert({
+    ticket_id: ticketId,
+    actor_id: profile.id,
+    field: "assignee",
+    old_value: current.assignee_id,
+    new_value: assigneeId || null,
+  });
 
-  if (assigneeId && assigneeId !== current?.assignee_id) {
+  if (assigneeId && assigneeId !== current.assignee_id) {
     const [{ data: ticket }, { data: assignee }] = await Promise.all([
       supabase.from("tickets").select("title, ticket_number, project_id").eq("id", ticketId).single(),
       supabase.from("profiles").select("email").eq("id", assigneeId).single(),

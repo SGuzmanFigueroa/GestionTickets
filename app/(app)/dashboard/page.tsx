@@ -10,6 +10,8 @@ import EmptyState from "@/components/ui/EmptyState";
 import SearchInput from "@/components/ui/SearchInput";
 import Avatar from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
+import { daysSince } from "@/lib/format";
+import { ROLE_LABELS, type UserRole } from "@/lib/types";
 import { PlusIcon, TicketIcon } from "@/components/ui/icons";
 import {
   PRIORITY_LABELS,
@@ -30,11 +32,11 @@ export default async function DashboardPage({
 
   const [{ data: projects }, { data: allTickets }, { data: people }, { data: resolutions }] = await Promise.all([
     supabase.from("projects").select("id, name, slug").order("name"),
-    supabase.from("tickets").select("status, severity, reporter_id, assignee_id"),
-    supabase.from("profiles").select("id, full_name, email"),
+    supabase.from("tickets").select("id, title, ticket_number, status, severity, reporter_id, assignee_id, created_at, updated_at, project:projects(code)"),
+    supabase.from("profiles").select("id, full_name, email, role"),
     supabase
       .from("ticket_history")
-      .select("ticket_id, actor_id")
+      .select("ticket_id, actor_id, created_at")
       .eq("field", "status")
       .in("new_value", ["resolved", "closed"]),
   ]);
@@ -69,6 +71,36 @@ export default async function DashboardPage({
     inProgress: allTickets?.filter((t) => t.status === "in_progress").length ?? 0,
     critical: allTickets?.filter((t) => t.severity === "critical").length ?? 0,
   };
+
+  // ---- Métricas de equipo ----
+  const DAY = 24 * 60 * 60 * 1000;
+  const isOpenStatus = (st: string) => st !== "resolved" && st !== "closed";
+  const openTickets = (allTickets ?? []).filter((t) => isOpenStatus(t.status));
+
+  const unassigned = openTickets
+    .filter((t) => !t.assignee_id)
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const stale = openTickets.filter((t) => daysSince(t.updated_at) >= 7);
+
+  // Tiempo promedio de resolución: creación → primera vez que pasó a Resuelto/Cerrado.
+  const createdAt = new Map((allTickets ?? []).map((t) => [t.id, t.created_at]));
+  const firstResolved = new Map<string, string>();
+  for (const r of resolutions ?? []) {
+    const prev = firstResolved.get(r.ticket_id);
+    if (!prev || r.created_at < prev) firstResolved.set(r.ticket_id, r.created_at);
+  }
+  const durations = [...firstResolved.entries()]
+    .filter(([id]) => createdAt.has(id))
+    .map(([id, at]) => (new Date(at).getTime() - new Date(createdAt.get(id)!).getTime()) / DAY);
+  const avgResolution = durations.length
+    ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1)
+    : "—";
+
+  // Personas del equipo (sin admin) sin tickets pendientes asignados.
+  const idle = (people ?? [])
+    .filter((p) => p.role !== "admin" && !pending.has(p.id))
+    .sort((a, b) => (a.full_name ?? a.email).localeCompare(b.full_name ?? b.email));
+  const neverReported = (people ?? []).filter((p) => p.role === "qa" && !reported.has(p.id));
 
   let query = supabase
     .from("tickets")
@@ -123,6 +155,71 @@ export default async function DashboardPage({
           entries={top(pending)}
           unit="pendientes"
         />
+      </div>
+
+      <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MetricCard label="Sin asignar" value={unassigned.length} tone={unassigned.length ? "warning" : "default"} />
+        <MetricCard label="Estancados (+7 días)" value={stale.length} tone={stale.length ? "danger" : "default"} />
+        <MetricCard label="Resolución promedio" value={avgResolution === "—" ? "—" : `${avgResolution} días`} />
+        <MetricCard label="Personas sin carga" value={idle.length} tone="primary" />
+      </div>
+
+      <div className="mb-6 grid gap-3 md:grid-cols-2">
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-sm font-semibold text-nexa-navy dark:text-white">Tickets sin asignar</p>
+          <p className="mb-3 text-xs text-slate-400 dark:text-slate-500">Los que llevan más días esperando, primero</p>
+          {unassigned.length === 0 ? (
+            <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">Todo está asignado.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+              {unassigned.slice(0, 6).map((t) => {
+                const days = daysSince(t.created_at);
+                return (
+                  <li key={t.id}>
+                    <Link
+                      href={`/tickets/${t.id}`}
+                      className="flex items-center gap-2 py-2 text-sm hover:text-nexa-blue"
+                    >
+                      <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
+                        {(t.project as unknown as { code: string } | null)?.code}-{t.ticket_number}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{t.title}</span>
+                      <span
+                        className={`shrink-0 text-xs font-medium ${days >= 7 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
+                      >
+                        {days === 0 ? "hoy" : `${days} d`}
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <p className="text-sm font-semibold text-nexa-navy dark:text-white">Personas sin tickets pendientes</p>
+          <p className="mb-3 text-xs text-slate-400 dark:text-slate-500">Disponibles para recibir trabajo (sin contar admins)</p>
+          {idle.length === 0 ? (
+            <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">Todos tienen trabajo asignado.</p>
+          ) : (
+            <ul className="space-y-2">
+              {idle.slice(0, 8).map((p) => (
+                <li key={p.id} className="flex items-center gap-2 text-sm">
+                  <Avatar name={p.full_name ?? p.email} size="sm" />
+                  <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{p.full_name ?? p.email}</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-500">{ROLE_LABELS[p.role as UserRole]}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {neverReported.length > 0 && (
+            <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+              QA que aún no han reportado ningún ticket:{" "}
+              {neverReported.map((p) => p.full_name ?? p.email).join(", ")}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

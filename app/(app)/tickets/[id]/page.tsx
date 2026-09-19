@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ticketPermissions } from "@/lib/ticket-permissions";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
@@ -93,11 +94,7 @@ export default async function TicketDetailPage({
     return `cambió el asignado de "${nameOf(h.old_value)}" a "${nameOf(h.new_value)}"`;
   }
 
-  const canManage =
-    profile.role === "admin" ||
-    profile.role === "lider" ||
-    t.reporter_id === profile.id ||
-    t.assignee_id === profile.id;
+  const { canChangeStatus, canChangeAssignee, lockReason } = ticketPermissions(profile, t);
 
   return (
     <div className="max-w-3xl">
@@ -222,7 +219,7 @@ export default async function TicketDetailPage({
               <select
                 name="status"
                 defaultValue={t.status}
-                disabled={!canManage}
+                disabled={!canChangeStatus}
                 className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 disabled:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800/60"
               >
                 {TICKET_STATUSES.map((s) => (
@@ -231,7 +228,7 @@ export default async function TicketDetailPage({
                   </option>
                 ))}
               </select>
-              {canManage && (
+              {canChangeStatus && (
                 <SubmitButton variant="dark" className="rounded-md px-3 py-1.5 text-sm">
                   Guardar
                 </SubmitButton>
@@ -246,7 +243,7 @@ export default async function TicketDetailPage({
               <select
                 name="assignee_id"
                 defaultValue={t.assignee_id ?? ""}
-                disabled={!canManage}
+                disabled={!canChangeAssignee}
                 className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 disabled:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800/60"
               >
                 <option value="">Sin asignar</option>
@@ -258,7 +255,7 @@ export default async function TicketDetailPage({
                   ),
                 )}
               </select>
-              {canManage && (
+              {canChangeAssignee && (
                 <SubmitButton variant="dark" className="rounded-md px-3 py-1.5 text-sm">
                   Guardar
                 </SubmitButton>
@@ -266,9 +263,9 @@ export default async function TicketDetailPage({
             </div>
           </form>
         </div>
-        {!canManage && (
+        {lockReason && (
           <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-            Solo quien reportó, la persona asignada o un admin pueden cambiar estado/asignación.
+            {lockReason}
           </p>
         )}
         </div>
