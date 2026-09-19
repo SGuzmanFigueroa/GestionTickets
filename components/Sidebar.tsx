@@ -34,6 +34,7 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
           <p className="text-sm font-semibold text-white">Nexa Tracker</p>
         </div>
         <div className="flex items-center gap-1">
+          <ThemeToggle className="text-white hover:bg-white/10" />
           <NotificationBell
             buttonClassName="text-white hover:bg-white/10"
             panelAlign="right"
@@ -122,7 +123,7 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
           </nav>
         </div>
 
-        <div className="space-y-3 border-t border-white/10 pt-4">
+        <div className="space-y-3 border-t border-white/10 pt-4 md:hidden">
           <div className="flex items-center gap-2 px-2">
             <Avatar name={displayName} className="ring-1 ring-white/10" />
             <div className="min-w-0">
@@ -130,7 +131,6 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
               <p className="text-xs text-blue-200/70">{ROLE_LABELS[profile.role]}</p>
             </div>
           </div>
-          <ThemeToggle />
           <form action={signOut}>
             <button
               type="submit"

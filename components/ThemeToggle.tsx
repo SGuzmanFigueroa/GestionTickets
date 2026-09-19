@@ -14,7 +14,32 @@ export function ThemeInitScript() {
   return <script dangerouslySetInnerHTML={{ __html: code }} />;
 }
 
-export default function ThemeToggle() {
+const SUN = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+    <path
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+    />
+  </svg>
+);
+
+const MOON = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path fill="currentColor" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+  </svg>
+);
+
+const ICON_DEFAULT =
+  "border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50 hover:text-nexa-blue dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-white";
+
+/**
+ * Botón de tema en forma de icono. El tema elegido se guarda en localStorage
+ * y el script anti-parpadeo lo aplica en cada carga.
+ */
+export default function ThemeToggle({ className = ICON_DEFAULT }: { className?: string }) {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -39,28 +64,11 @@ export default function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      aria-label="Cambiar tema"
-      className="flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm text-blue-200/70 transition-colors hover:bg-white/10 hover:text-white"
+      aria-label={isDark ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+      title={isDark ? "Modo claro" : "Modo oscuro"}
+      className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${className}`}
     >
-      {isDark ? (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
-          <path
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
-          />
-        </svg>
-      ) : (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-          <path
-            fill="currentColor"
-            d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
-          />
-        </svg>
-      )}
-      {isDark ? "Modo claro" : "Modo oscuro"}
+      {isDark ? SUN : MOON}
     </button>
   );
 }

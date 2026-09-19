@@ -2,6 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import NotificationBell from "./NotificationBell";
+import ThemeToggle from "./ThemeToggle";
+import UserMenu from "./UserMenu";
+import type { Profile } from "@/lib/types";
 
 const SEGMENT_LABELS: { test: (path: string) => boolean; label: string }[] = [
   { test: (p) => p === "/dashboard", label: "Tickets" },
@@ -14,7 +17,7 @@ const SEGMENT_LABELS: { test: (path: string) => boolean; label: string }[] = [
   { test: (p) => p === "/admin/users", label: "Usuarios y roles" },
 ];
 
-export default function Topbar() {
+export default function Topbar({ profile }: { profile: Profile }) {
   const pathname = usePathname();
   const current = SEGMENT_LABELS.find((s) => s.test(pathname))?.label ?? "";
 
@@ -29,7 +32,11 @@ export default function Topbar() {
           </>
         )}
       </p>
-      <NotificationBell />
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
+        <NotificationBell />
+        <UserMenu profile={profile} />
+      </div>
     </div>
   );
 }

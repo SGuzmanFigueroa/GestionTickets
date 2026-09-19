@@ -12,7 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <LiveRefresh />
       <Sidebar profile={profile} isLeader={leader} />
       <div className="flex min-h-screen flex-1 flex-col overflow-x-hidden">
-        <Topbar />
+        <Topbar profile={profile} />
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8">
           <div className="mx-auto w-full max-w-[1440px]">{children}</div>
         </main>

@@ -5,6 +5,7 @@ import { StatusBadge, SeverityBadge, PriorityBadge, ProjectBadge } from "@/compo
 import AutoSubmitForm from "@/components/AutoSubmitForm";
 import PageHeader from "@/components/ui/PageHeader";
 import MetricCard from "@/components/ui/MetricCard";
+import Leaderboard, { type LeaderboardEntry } from "@/components/ui/Leaderboard";
 import EmptyState from "@/components/ui/EmptyState";
 import SearchInput from "@/components/ui/SearchInput";
 import Avatar from "@/components/ui/Avatar";
@@ -27,10 +28,40 @@ export default async function DashboardPage({
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const [{ data: projects }, { data: allTickets }] = await Promise.all([
+  const [{ data: projects }, { data: allTickets }, { data: people }, { data: resolutions }] = await Promise.all([
     supabase.from("projects").select("id, name, slug").order("name"),
-    supabase.from("tickets").select("status, severity"),
+    supabase.from("tickets").select("status, severity, reporter_id, assignee_id"),
+    supabase.from("profiles").select("id, full_name, email"),
+    supabase
+      .from("ticket_history")
+      .select("ticket_id, actor_id")
+      .eq("field", "status")
+      .in("new_value", ["resolved", "closed"]),
   ]);
+
+  const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
+  const top = (counts: Map<string, number>): LeaderboardEntry[] =>
+    [...counts.entries()]
+      .filter(([id]) => nameOf.has(id))
+      .map(([id, count]) => ({ name: nameOf.get(id)!, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 5);
+
+  const reported = new Map<string, number>();
+  const pending = new Map<string, number>();
+  for (const t of allTickets ?? []) {
+    if (t.reporter_id) reported.set(t.reporter_id, (reported.get(t.reporter_id) ?? 0) + 1);
+    if (t.assignee_id && t.status !== "resolved" && t.status !== "closed") {
+      pending.set(t.assignee_id, (pending.get(t.assignee_id) ?? 0) + 1);
+    }
+  }
+  // Quien resuelve = quien cambió el estado a Resuelto/Cerrado (un ticket cuenta una vez por persona).
+  const resolvedPairs = new Set((resolutions ?? []).map((r) => `${r.actor_id}|${r.ticket_id}`));
+  const resolved = new Map<string, number>();
+  for (const pair of resolvedPairs) {
+    const actor = pair.split("|")[0];
+    resolved.set(actor, (resolved.get(actor) ?? 0) + 1);
+  }
 
   const stats = {
     total: allTickets?.length ?? 0,
@@ -71,6 +102,27 @@ export default async function DashboardPage({
         <MetricCard label="Abiertos" value={stats.open} tone="primary" />
         <MetricCard label="En progreso" value={stats.inProgress} tone="warning" />
         <MetricCard label="Críticos" value={stats.critical} tone="danger" />
+      </div>
+
+      <div className="mb-6 grid gap-3 md:grid-cols-3">
+        <Leaderboard
+          title="Quién reporta más"
+          subtitle="Tickets creados"
+          entries={top(reported)}
+          unit="tickets"
+        />
+        <Leaderboard
+          title="Quién resuelve más"
+          subtitle="Tickets pasados a Resuelto o Cerrado"
+          entries={top(resolved)}
+          unit="resueltos"
+        />
+        <Leaderboard
+          title="Más carga pendiente"
+          subtitle="Tickets asignados aún sin resolver"
+          entries={top(pending)}
+          unit="pendientes"
+        />
       </div>
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
