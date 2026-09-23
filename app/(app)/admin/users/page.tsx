@@ -25,9 +25,9 @@ const ROLE_DOT: Record<UserRole, string> = {
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; success?: string; role?: string }>;
+  searchParams: Promise<{ error?: string; success?: string; role?: string; project?: string }>;
 }) {
-  const { error, success, role } = await searchParams;
+  const { error, success, role, project } = await searchParams;
   const { profile: admin, isAdmin } = await requireAdminOrLeader();
   const assignableRoles = isAdmin
     ? USER_ROLES
@@ -42,24 +42,36 @@ export default async function AdminUsersPage({
     query = query.eq("role", role);
   }
 
-  const [{ data: users }, { data: projectRows }] = await Promise.all([
+  const [{ data: users }, { data: projectRows }, { data: projects }] = await Promise.all([
     query,
     supabase
       .from("team_member_projects")
-      .select("project:projects(code, name), member:team_members(profile_id)"),
+      .select("project:projects(id, code, name), member:team_members(profile_id)"),
+    supabase.from("projects").select("id, code, name").order("name"),
   ]);
 
-  const projectsByProfileId = new Map<string, string[]>();
+  const projectsByProfileId = new Map<string, { id: string; code: string }[]>();
   for (const row of projectRows ?? []) {
     const profileId = (row.member as unknown as { profile_id: string | null } | null)?.profile_id;
-    const code = (row.project as unknown as { code: string } | null)?.code;
-    if (!profileId || !code) continue;
+    const p = row.project as unknown as { id: string; code: string } | null;
+    if (!profileId || !p) continue;
     const list = projectsByProfileId.get(profileId) ?? [];
-    list.push(code);
+    list.push({ id: p.id, code: p.code });
     projectsByProfileId.set(profileId, list);
   }
 
-  const rows = (users as Profile[] | null) ?? [];
+  // Filtro por proyecto (se combina con el de rol): "none" = sin proyecto asignado.
+  const rows = ((users as Profile[] | null) ?? []).filter((u) => {
+    if (!project) return true;
+    const assigned = projectsByProfileId.get(u.id) ?? [];
+    return project === "none" ? assigned.length === 0 : assigned.some((p) => p.id === project);
+  });
+
+  const filterParams = new URLSearchParams();
+  if (role) filterParams.set("role", role);
+  if (project) filterParams.set("project", project);
+  const returnQuery = filterParams.toString();
+  const hasFilters = Boolean(role || project);
 
   return (
     <div>
@@ -94,7 +106,25 @@ export default async function AdminUsersPage({
               </option>
             ))}
           </select>
-          {role && (
+          <select
+            name="project"
+            defaultValue={project ?? ""}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          >
+            <option value="">Todos los proyectos</option>
+            {projects?.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.code} · {p.name}
+              </option>
+            ))}
+            <option value="none">Sin proyecto</option>
+          </select>
+          {hasFilters && (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              {rows.length} {rows.length === 1 ? "usuario" : "usuarios"}
+            </span>
+          )}
+          {hasFilters && (
             <Link
               href="/admin/users"
               className="rounded-md px-3 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
@@ -149,9 +179,9 @@ export default async function AdminUsersPage({
                     <td className="px-4 py-2.5">
                       {(projectsByProfileId.get(u.id) ?? []).length > 0 ? (
                         <div className="flex flex-wrap gap-1">
-                          {projectsByProfileId.get(u.id)!.map((code) => (
+                          {projectsByProfileId.get(u.id)!.map(({ id, code }) => (
                             <span
-                              key={code}
+                              key={id}
                               className="rounded bg-nexa-light px-1.5 py-0.5 text-xs font-medium text-nexa-blue dark:bg-blue-950/40 dark:text-blue-300"
                             >
                               {code}
@@ -172,6 +202,7 @@ export default async function AdminUsersPage({
                           currentRole={u.role}
                           assignableRoles={assignableRoles}
                           disabled={u.id === admin.id}
+                          returnQuery={returnQuery}
                         />
                       )}
                     </td>
@@ -180,6 +211,7 @@ export default async function AdminUsersPage({
                         action={updateUserDiscordId}
                         userId={u.id}
                         currentDiscordId={u.discord_id}
+                        returnQuery={returnQuery}
                       />
                     </td>
                     <td className="px-4 py-2.5 text-right">
@@ -187,6 +219,7 @@ export default async function AdminUsersPage({
                         <DropdownMenu label={`Más acciones para ${displayName}`}>
                           <form action={deleteUser}>
                             <input type="hidden" name="user_id" value={u.id} />
+                            <input type="hidden" name="return_query" value={returnQuery} />
                             <ConfirmSubmitButton
                               title="¿Eliminar usuario?"
                               confirmMessage={`Esta acción puede afectar registros asociados a "${displayName}" y no se puede deshacer.`}

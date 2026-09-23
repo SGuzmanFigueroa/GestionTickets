@@ -14,12 +14,15 @@ function SavingIndicator() {
 export default function RoleSelect({
   action,
   userId,
+  returnQuery = "",
   currentRole,
   assignableRoles,
   disabled,
 }: {
   action: (formData: FormData) => void;
   userId: string;
+  /** Query string actual (filtros) para volver a la misma vista tras guardar. */
+  returnQuery?: string;
   currentRole: UserRole;
   assignableRoles: UserRole[];
   disabled?: boolean;
@@ -29,6 +32,7 @@ export default function RoleSelect({
   return (
     <form ref={formRef} action={action} className="flex items-center gap-2">
       <input type="hidden" name="user_id" value={userId} />
+      <input type="hidden" name="return_query" value={returnQuery} />
       <select
         name="role"
         defaultValue={currentRole}

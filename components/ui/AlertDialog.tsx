@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 export default function AlertDialog({
   open,
@@ -32,7 +33,9 @@ export default function AlertDialog({
 
   if (!open) return null;
 
-  return (
+  // Portal al <body> para que se vea aunque quien lo abre esté dentro de un
+  // contenedor oculto (p. ej. un DropdownMenu que ya se cerró).
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/50" onClick={onCancel} aria-hidden="true" />
       <div
@@ -67,6 +70,7 @@ export default function AlertDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

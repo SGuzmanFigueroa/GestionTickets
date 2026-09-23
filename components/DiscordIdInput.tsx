@@ -13,10 +13,13 @@ function SavingIndicator() {
 export default function DiscordIdInput({
   action,
   userId,
+  returnQuery = "",
   currentDiscordId,
 }: {
   action: (formData: FormData) => void;
   userId: string;
+  /** Query string actual (filtros) para volver a la misma vista tras guardar. */
+  returnQuery?: string;
   currentDiscordId: string | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -25,6 +28,7 @@ export default function DiscordIdInput({
   return (
     <form ref={formRef} action={action} className="flex items-center gap-2">
       <input type="hidden" name="user_id" value={userId} />
+      <input type="hidden" name="return_query" value={returnQuery} />
       <input
         type="text"
         name="discord_id"

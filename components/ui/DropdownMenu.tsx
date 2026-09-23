@@ -35,17 +35,18 @@ export function DropdownMenu({
       >
         <DotsHorizontalIcon />
       </button>
-      {open && (
-        <div
-          role="menu"
-          onClick={() => setOpen(false)}
-          className={`absolute z-30 mt-1 w-44 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800 ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
-        >
-          {children}
-        </div>
-      )}
+      {/* Se oculta en vez de desmontarse: así un ConfirmSubmitButton dentro del
+          menú conserva su diálogo y su <form> después de que el menú se cierra. */}
+      <div
+        role="menu"
+        hidden={!open}
+        onClick={() => setOpen(false)}
+        className={`absolute z-30 mt-1 w-44 overflow-hidden rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800 ${
+          align === "right" ? "right-0" : "left-0"
+        }`}
+      >
+        {children}
+      </div>
     </div>
   );
 }
