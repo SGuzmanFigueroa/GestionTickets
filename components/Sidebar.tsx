@@ -5,6 +5,7 @@ import { signOut } from "@/app/login/actions";
 import { ROLE_LABELS, type Profile } from "@/lib/types";
 import NavLink from "./NavLink";
 import ThemeToggle from "./ThemeToggle";
+import AppSwitcher from "./AppSwitcher";
 import NotificationBell from "./NotificationBell";
 import Avatar from "@/components/ui/Avatar";
 import { ClipboardCheckIcon, FolderIcon, PlusIcon, TicketIcon, UsersIcon } from "@/components/ui/icons";
@@ -34,6 +35,7 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
           <p className="text-sm font-semibold text-white">Nexa Tracker</p>
         </div>
         <div className="flex items-center gap-1">
+          <AppSwitcher buttonClassName="text-white hover:bg-white/10" />
           <ThemeToggle className="text-white hover:bg-white/10" />
           <NotificationBell
             buttonClassName="text-white hover:bg-white/10"

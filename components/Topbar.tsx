@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import AppSwitcher from "./AppSwitcher";
 import NotificationBell from "./NotificationBell";
 import ThemeToggle from "./ThemeToggle";
 import UserMenu from "./UserMenu";
@@ -33,6 +34,7 @@ export default function Topbar({ profile }: { profile: Profile }) {
         )}
       </p>
       <div className="flex items-center gap-2">
+        <AppSwitcher />
         <ThemeToggle />
         <NotificationBell />
         <UserMenu profile={profile} />
