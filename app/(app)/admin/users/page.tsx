@@ -5,12 +5,13 @@ import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import SuccessBanner from "@/components/SuccessBanner";
 import AutoSubmitForm from "@/components/AutoSubmitForm";
 import RoleSelect from "@/components/RoleSelect";
+import DiscordIdInput from "@/components/DiscordIdInput";
 import PageHeader from "@/components/ui/PageHeader";
 import SearchInput from "@/components/ui/SearchInput";
 import Avatar from "@/components/ui/Avatar";
 import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import { ROLE_LABELS, USER_ROLES, type Profile, type UserRole } from "@/lib/types";
-import { deleteUser, updateUserRole } from "./actions";
+import { deleteUser, updateUserDiscordId, updateUserRole } from "./actions";
 
 const ROLE_DOT: Record<UserRole, string> = {
   admin: "bg-nexa-navy dark:bg-blue-200",
@@ -34,7 +35,7 @@ export default async function AdminUsersPage({
   const supabase = await createClient();
   let query = supabase
     .from("profiles")
-    .select("id, email, full_name, role, created_at")
+    .select("id, email, full_name, role, discord_id, created_at")
     .order("full_name", { ascending: true });
 
   if (role && (USER_ROLES as string[]).includes(role)) {
@@ -119,6 +120,7 @@ export default async function AdminUsersPage({
                 <th scope="col" className="px-4 py-2.5 font-medium">Usuario</th>
                 <th scope="col" className="px-4 py-2.5 font-medium">Proyecto</th>
                 <th scope="col" className="px-4 py-2.5 font-medium">Rol</th>
+                <th scope="col" className="px-4 py-2.5 font-medium">Discord ID</th>
                 <th scope="col" className="px-4 py-2.5 font-medium"><span className="sr-only">Acciones</span></th>
               </tr>
             </thead>
@@ -172,6 +174,13 @@ export default async function AdminUsersPage({
                           disabled={u.id === admin.id}
                         />
                       )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <DiscordIdInput
+                        action={updateUserDiscordId}
+                        userId={u.id}
+                        currentDiscordId={u.discord_id}
+                      />
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       {isAdmin && u.id !== admin.id && (

@@ -31,6 +31,33 @@ export async function updateUserRole(formData: FormData) {
   redirect(`/admin/users?success=${encodeURIComponent("Rol actualizado.")}`);
 }
 
+export async function updateUserDiscordId(formData: FormData) {
+  await requireAdminOrLeader();
+  const userId = String(formData.get("user_id") ?? "");
+  const raw = String(formData.get("discord_id") ?? "").trim();
+
+  if (raw && !/^\d{15,25}$/.test(raw)) {
+    redirect(
+      `/admin/users?error=${encodeURIComponent(
+        "El Discord ID debe ser solo numeros (clic derecho al usuario en Discord, con Modo Desarrollador activado, Copiar ID de usuario).",
+      )}`,
+    );
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ discord_id: raw || null })
+    .eq("id", userId);
+
+  if (error) {
+    const message = error.code === "23505" ? "Ese Discord ID ya esta vinculado a otro usuario." : error.message;
+    redirect(`/admin/users?error=${encodeURIComponent(message)}`);
+  }
+
+  redirect(`/admin/users?success=${encodeURIComponent("Discord ID actualizado.")}`);
+}
+
 export async function deleteUser(formData: FormData) {
   const admin = await requireAdmin();
   const userId = String(formData.get("user_id") ?? "");
