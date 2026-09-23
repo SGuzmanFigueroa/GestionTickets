@@ -1,6 +1,6 @@
-export type UserRole = "admin" | "lider" | "qa" | "developer" | "backend" | "frontend";
+export type UserRole = "admin" | "lider" | "qa" | "developer" | "backend" | "frontend" | "marketing";
 
-export const USER_ROLES: UserRole[] = ["admin", "lider", "qa", "developer", "backend", "frontend"];
+export const USER_ROLES: UserRole[] = ["admin", "lider", "qa", "developer", "backend", "frontend", "marketing"];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Admin",
@@ -9,6 +9,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   developer: "Developer",
   backend: "Backend",
   frontend: "Frontend",
+  marketing: "Marketing",
 };
 
 export type TicketStatus =

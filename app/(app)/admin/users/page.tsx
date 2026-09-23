@@ -20,6 +20,7 @@ const ROLE_DOT: Record<UserRole, string> = {
   developer: "bg-nexa-blue",
   backend: "bg-emerald-500",
   frontend: "bg-purple-500",
+  marketing: "bg-rose-500",
 };
 
 export default async function AdminUsersPage({
@@ -82,7 +83,7 @@ export default async function AdminUsersPage({
 
       <p className="-mt-4 mb-6 text-sm text-slate-500 dark:text-slate-400">
         Las cuentas nuevas entran con rol QA. Asígnales el rol correcto aquí (Admin, QA, Developer,
-        Backend, Frontend).
+        Backend, Frontend, Marketing).
         {!isAdmin &&
           " Como líder, no puedes tocar cuentas admin ni de otros líderes, ni volver a nadie admin o líder."}
       </p>
