@@ -5,6 +5,8 @@ import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import { DropdownMenu } from "@/components/ui/DropdownMenu";
+import ProgressBar from "@/components/ui/ProgressBar";
+import Link from "next/link";
 import NewProjectModal from "./NewProjectModal";
 import { deleteProject } from "./actions";
 
@@ -16,15 +18,23 @@ export default async function AdminProjectsPage({
   const { error, success } = await searchParams;
   await requireAdmin();
   const supabase = await createClient();
-  const [{ data: projects }, { data: leaders }] = await Promise.all([
+  const [{ data: projects }, { data: leaders }, { data: requirements }] = await Promise.all([
     supabase
       .from("projects")
       .select("id, name, slug, code, description, created_at, leader_id")
       .order("created_at", { ascending: false }),
     supabase.from("profiles").select("id, full_name, email").eq("role", "lider").order("full_name"),
+    supabase.from("project_requirements").select("project_id, done"),
   ]);
 
   const leadersById = new Map((leaders ?? []).map((l) => [l.id, l]));
+  const progress = new Map<string, { done: number; total: number }>();
+  for (const r of requirements ?? []) {
+    const c = progress.get(r.project_id) ?? { done: 0, total: 0 };
+    c.total += 1;
+    if (r.done) c.done += 1;
+    progress.set(r.project_id, c);
+  }
 
   return (
     <div>
@@ -77,9 +87,24 @@ export default async function AdminProjectsPage({
                   <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{p.description}</p>
                 )}
 
-                <p className="mt-auto pt-3 text-xs text-slate-400 dark:text-slate-500">
-                  Líder: {leader?.full_name ?? leader?.email ?? "Sin asignar"}
-                </p>
+                <div className="mt-auto pt-3">
+                  {progress.get(p.id) && (
+                    <div className="mb-2">
+                      <ProgressBar done={progress.get(p.id)!.done} total={progress.get(p.id)!.total} size="sm" />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-xs text-slate-400 dark:text-slate-500">
+                      Líder: {leader?.full_name ?? leader?.email ?? "Sin asignar"}
+                    </p>
+                    <Link
+                      href={`/progress/${p.id}`}
+                      className="shrink-0 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-nexa-blue transition-colors hover:border-nexa-blue hover:bg-nexa-light dark:border-slate-600 dark:hover:bg-blue-950/30"
+                    >
+                      Ver progreso
+                    </Link>
+                  </div>
+                </div>
               </div>
             );
           })}

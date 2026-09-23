@@ -84,3 +84,12 @@ export function XIcon({ className = "" }: IconProps) {
     </svg>
   );
 }
+
+export function ProgressIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={`${base} ${className}`} width="16" height="16">
+      <path d="M3.5 10.5l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M11 13.5h5.5M13 9.5h3.5M14.5 5.5h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}

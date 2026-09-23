@@ -8,7 +8,7 @@ import ThemeToggle from "./ThemeToggle";
 import AppSwitcher from "./AppSwitcher";
 import NotificationBell from "./NotificationBell";
 import Avatar from "@/components/ui/Avatar";
-import { ClipboardCheckIcon, FolderIcon, PlusIcon, TicketIcon, UsersIcon } from "@/components/ui/icons";
+import { ClipboardCheckIcon, FolderIcon, PlusIcon, ProgressIcon, TicketIcon, UsersIcon } from "@/components/ui/icons";
 
 export default function Sidebar({ profile, isLeader = false }: { profile: Profile; isLeader?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -96,6 +96,9 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
             </NavLink>
             <NavLink href="/test-cases" icon={<ClipboardCheckIcon />} onNavigate={close}>
               Casos de prueba
+            </NavLink>
+            <NavLink href="/progress" icon={<ProgressIcon />} onNavigate={close}>
+              Progreso
             </NavLink>
 
             {profile.role === "admin" && (

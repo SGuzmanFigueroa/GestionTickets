@@ -14,6 +14,8 @@ const SEGMENT_LABELS: { test: (path: string) => boolean; label: string }[] = [
   { test: (p) => p === "/test-cases", label: "Casos de prueba" },
   { test: (p) => p === "/test-cases/new", label: "Nuevo caso de prueba" },
   { test: (p) => /^\/test-cases\/[^/]+$/.test(p), label: "Detalle de caso" },
+  { test: (p) => p === "/progress", label: "Progreso de proyectos" },
+  { test: (p) => /^\/progress\/[^/]+$/.test(p), label: "Checklist del proyecto" },
   { test: (p) => p === "/admin/projects", label: "Proyectos" },
   { test: (p) => p === "/admin/users", label: "Usuarios y roles" },
 ];

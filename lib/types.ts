@@ -151,3 +151,24 @@ export interface TicketComment {
   created_at: string;
   author: Pick<Profile, "id" | "full_name" | "email"> | null;
 }
+
+export type RequirementSource = "mvp" | "figma";
+
+export const REQUIREMENT_SOURCE_LABELS: Record<RequirementSource, string> = {
+  mvp: "MVP",
+  figma: "Figma",
+};
+
+export interface ProjectRequirement {
+  id: string;
+  project_id: string;
+  title: string;
+  section: string | null;
+  source: RequirementSource;
+  figma_url: string | null;
+  done: boolean;
+  done_by: string | null;
+  done_at: string | null;
+  position: number;
+  created_at: string;
+}
