@@ -18,8 +18,11 @@ import {
   SEVERITY_LABELS,
   STATUS_LABELS,
   TICKET_STATUSES,
+  type TicketSeverity,
+  type TicketStatus,
   type TicketWithRelations,
 } from "@/lib/types";
+import TeamMetrics, { type MetricPerson, type MetricTicket, type ResolutionStats } from "./TeamMetrics";
 
 export default async function DashboardPage({
   searchParams,
@@ -32,7 +35,7 @@ export default async function DashboardPage({
 
   const [{ data: projects }, { data: allTickets }, { data: people }, { data: resolutions }] = await Promise.all([
     supabase.from("projects").select("id, name, slug").order("name"),
-    supabase.from("tickets").select("id, title, ticket_number, status, severity, reporter_id, assignee_id, created_at, updated_at, project:projects(code)"),
+    supabase.from("tickets").select("id, title, ticket_number, status, severity, target_role, reporter_id, assignee_id, created_at, updated_at, project:projects(code)"),
     supabase.from("profiles").select("id, full_name, email, role"),
     supabase
       .from("ticket_history")
@@ -83,23 +86,121 @@ export default async function DashboardPage({
   const stale = openTickets.filter((t) => daysSince(t.updated_at) >= 7);
 
   // Tiempo promedio de resolución: creación → primera vez que pasó a Resuelto/Cerrado.
-  const createdAt = new Map((allTickets ?? []).map((t) => [t.id, t.created_at]));
-  const firstResolved = new Map<string, string>();
+  const ticketById = new Map((allTickets ?? []).map((t) => [t.id, t]));
+  const codeOf = (t: { ticket_number: number; project: unknown }) =>
+    `${(t.project as { code: string } | null)?.code}-${t.ticket_number}`;
+  const firstResolved = new Map<string, { at: string; actor: string }>();
   for (const r of resolutions ?? []) {
     const prev = firstResolved.get(r.ticket_id);
-    if (!prev || r.created_at < prev) firstResolved.set(r.ticket_id, r.created_at);
+    if (!prev || r.created_at < prev.at) firstResolved.set(r.ticket_id, { at: r.created_at, actor: r.actor_id });
   }
-  const durations = [...firstResolved.entries()]
-    .filter(([id]) => createdAt.has(id))
-    .map(([id, at]) => (new Date(at).getTime() - new Date(createdAt.get(id)!).getTime()) / DAY);
-  const avgResolution = durations.length
-    ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1)
+  const resolvedDurations = [...firstResolved.entries()]
+    .filter(([id]) => ticketById.has(id))
+    .map(([id, { at, actor }]) => {
+      const t = ticketById.get(id)!;
+      return { t, actor, days: (new Date(at).getTime() - new Date(t.created_at).getTime()) / DAY };
+    });
+  const avgResolution = resolvedDurations.length
+    ? (resolvedDurations.reduce((a, d) => a + d.days, 0) / resolvedDurations.length).toFixed(1)
     : "—";
 
-  // Personas del equipo (sin admin) sin tickets pendientes asignados.
-  const idle = (people ?? [])
-    .filter((p) => p.role !== "admin" && !pending.has(p.id))
-    .sort((a, b) => (a.full_name ?? a.email).localeCompare(b.full_name ?? b.email));
+  const groupAvg = <K,>(items: typeof resolvedDurations, keyOf: (d: (typeof resolvedDurations)[number]) => K) => {
+    const acc = new Map<K, { total: number; count: number }>();
+    for (const d of items) {
+      const k = keyOf(d);
+      const cur = acc.get(k) ?? { total: 0, count: 0 };
+      acc.set(k, { total: cur.total + d.days, count: cur.count + 1 });
+    }
+    return [...acc.entries()].map(([key, { total, count }]) => ({ key, count, avg: total / count }));
+  };
+
+  const resolution: ResolutionStats = {
+    average: avgResolution,
+    count: resolvedDurations.length,
+    bySeverity: groupAvg(resolvedDurations, (d) => d.t.severity as TicketSeverity).map(({ key, count, avg }) => ({
+      severity: key,
+      count,
+      avg,
+    })),
+    byPerson: groupAvg(
+      resolvedDurations.filter((d) => nameOf.has(d.actor)),
+      (d) => d.actor,
+    )
+      .map(({ key, count, avg }) => ({ name: nameOf.get(key)!, count, avg }))
+      .sort((a, b) => a.avg - b.avg),
+    slowest: [...resolvedDurations]
+      .sort((a, b) => b.days - a.days)
+      .slice(0, 5)
+      .map((d) => ({ id: d.t.id, code: codeOf(d.t), title: d.t.title, days: d.days, resolver: nameOf.get(d.actor) ?? null })),
+  };
+
+  // Seguimiento de los estancados: último cambio de historial o comentario de cada uno.
+  const staleIds = stale.map((t) => t.id);
+  const [{ data: staleHistory }, { data: staleComments }] = staleIds.length
+    ? await Promise.all([
+        supabase
+          .from("ticket_history")
+          .select("ticket_id, actor_id, field, new_value, created_at")
+          .in("ticket_id", staleIds)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("ticket_comments")
+          .select("ticket_id, author_id, body, created_at")
+          .in("ticket_id", staleIds)
+          .order("created_at", { ascending: false }),
+      ])
+    : [{ data: [] }, { data: [] }];
+
+  const lastActivity = new Map<string, NonNullable<MetricTicket["lastActivity"]> & { at: string }>();
+  const pushActivity = (ticketId: string, at: string, actorId: string, text: string) => {
+    const prev = lastActivity.get(ticketId);
+    if (prev && prev.at >= at) return;
+    lastActivity.set(ticketId, { at, actor: nameOf.get(actorId) ?? "Alguien", text, days: daysSince(at) });
+  };
+  for (const h of staleHistory ?? []) {
+    const text =
+      h.field === "status"
+        ? `cambió el estado a "${STATUS_LABELS[h.new_value as TicketStatus] ?? h.new_value}"`
+        : h.new_value
+          ? `asignó el ticket a ${nameOf.get(h.new_value) ?? "otra persona"}`
+          : "quitó la persona asignada";
+    pushActivity(h.ticket_id, h.created_at, h.actor_id, text);
+  }
+  for (const c of staleComments ?? []) {
+    const body = c.body.length > 120 ? `${c.body.slice(0, 120)}…` : c.body;
+    pushActivity(c.ticket_id, c.created_at, c.author_id, `comentó: “${body}”`);
+  }
+
+  const roleOf = new Map((people ?? []).map((p) => [p.id, p.role as UserRole]));
+  const toMetricTicket = (t: NonNullable<typeof allTickets>[number]): MetricTicket => {
+    const activity = lastActivity.get(t.id);
+    return {
+      id: t.id,
+      code: codeOf(t),
+      title: t.title,
+      status: t.status as TicketStatus,
+      severity: t.severity as TicketSeverity,
+      targetRole: (t.target_role as UserRole | null) ?? null,
+      assigneeName: t.assignee_id ? (nameOf.get(t.assignee_id) ?? null) : null,
+      assigneeRole: t.assignee_id ? (roleOf.get(t.assignee_id) ?? null) : null,
+      createdDays: daysSince(t.created_at),
+      updatedDays: daysSince(t.updated_at),
+      lastActivity: activity ? { actor: activity.actor, text: activity.text, days: activity.days } : null,
+    };
+  };
+
+  // Personas del equipo (sin admin) con su carga pendiente.
+  const team: MetricPerson[] = (people ?? [])
+    .filter((p) => p.role !== "admin")
+    .map((p) => ({
+      id: p.id,
+      name: p.full_name ?? p.email,
+      role: p.role as UserRole,
+      pending: pending.get(p.id) ?? 0,
+      resolved: resolved.get(p.id) ?? 0,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const idle = team.filter((p) => p.pending === 0);
   const neverReported = (people ?? []).filter((p) => p.role === "qa" && !reported.has(p.id));
 
   let query = supabase
@@ -157,12 +258,13 @@ export default async function DashboardPage({
         />
       </div>
 
-      <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MetricCard label="Sin asignar" value={unassigned.length} tone={unassigned.length ? "warning" : "default"} />
-        <MetricCard label="Estancados (+7 días)" value={stale.length} tone={stale.length ? "danger" : "default"} />
-        <MetricCard label="Resolución promedio" value={avgResolution === "—" ? "—" : `${avgResolution} días`} />
-        <MetricCard label="Personas sin carga" value={idle.length} tone="primary" />
-      </div>
+      <TeamMetrics
+        unassigned={unassigned.map(toMetricTicket)}
+        stale={stale.sort((a, b) => a.updated_at.localeCompare(b.updated_at)).map(toMetricTicket)}
+        resolution={resolution}
+        people={team}
+      />
+
 
       <div className="mb-6 grid gap-3 md:grid-cols-2">
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
@@ -206,9 +308,9 @@ export default async function DashboardPage({
             <ul className="space-y-2">
               {idle.slice(0, 8).map((p) => (
                 <li key={p.id} className="flex items-center gap-2 text-sm">
-                  <Avatar name={p.full_name ?? p.email} size="sm" />
-                  <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{p.full_name ?? p.email}</span>
-                  <span className="text-xs text-slate-400 dark:text-slate-500">{ROLE_LABELS[p.role as UserRole]}</span>
+                  <Avatar name={p.name} size="sm" />
+                  <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{p.name}</span>
+                  <span className="text-xs text-slate-400 dark:text-slate-500">{ROLE_LABELS[p.role]}</span>
                 </li>
               ))}
             </ul>

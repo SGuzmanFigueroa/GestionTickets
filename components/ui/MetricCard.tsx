@@ -26,19 +26,39 @@ export default function MetricCard({
   value,
   icon,
   tone = "default",
+  onClick,
 }: {
   label: string;
   value: number | string;
   icon?: React.ReactNode;
   tone?: MetricTone;
+  /** Si se pasa, la tarjeta se vuelve un botón que abre el detalle. */
+  onClick?: () => void;
 }) {
-  return (
-    <div className={`rounded-lg border p-4 ${TONE_STYLES[tone]}`}>
+  const content = (
+    <>
       <div className="flex items-center justify-between">
         <p className={`text-xs font-medium uppercase tracking-wide ${LABEL_TONE[tone]}`}>{label}</p>
         {icon && <span className={VALUE_TONE[tone]}>{icon}</span>}
       </div>
       <p className={`mt-1 text-2xl font-semibold ${VALUE_TONE[tone]}`}>{value}</p>
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`group w-full rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-nexa-blue ${TONE_STYLES[tone]}`}
+      >
+        {content}
+        <p className="mt-1 text-xs text-slate-400 transition-colors group-hover:text-nexa-blue dark:text-slate-500">
+          Ver detalle →
+        </p>
+      </button>
+    );
+  }
+
+  return <div className={`rounded-lg border p-4 ${TONE_STYLES[tone]}`}>{content}</div>;
 }
