@@ -20,8 +20,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    // suppressHydrationWarning: ThemeInitScript añade la clase "dark" al <html>
+    // antes de que React hidrate. Solo silencia los atributos de este elemento.
     <html
-      lang="en"
+      lang="es"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
