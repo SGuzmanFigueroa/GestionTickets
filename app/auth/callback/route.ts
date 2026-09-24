@@ -18,7 +18,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Links de recuperación sin `code`: la sesión viene en el #hash, que el
+  // servidor no ve pero el navegador conserva al seguir este redirect.
+  // /reset-password la toma del hash (o muestra que el link expiró).
+  if (!code && next === "/reset-password") {
+    return NextResponse.redirect(`${origin}/reset-password`);
+  }
+
   return NextResponse.redirect(
-    `${origin}/login?error=${encodeURIComponent("Este link no es válido o ya expiró.")}`,
+    `${origin}/login?error=${encodeURIComponent("Este link no es válido o ya expiró. Pide uno nuevo en ¿Olvidaste tu contraseña?")}`,
   );
 }

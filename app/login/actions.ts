@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
 export async function signIn(formData: FormData) {
@@ -54,7 +55,15 @@ export async function requestPasswordReset(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent("Escribe tu correo para recuperar la contraseña.")}`);
   }
 
-  const supabase = await createClient();
+  // Flujo "implicit" a propósito: con PKCE (el default de @supabase/ssr) el
+  // link solo funciona en el mismo navegador donde se pidió, porque necesita
+  // una cookie guardada aquí. La gente suele abrir el correo en el celular,
+  // así que el link lleva la sesión en el #hash y /reset-password la toma.
+  const supabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { flowType: "implicit", persistSession: false, autoRefreshToken: false } },
+  );
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
   });

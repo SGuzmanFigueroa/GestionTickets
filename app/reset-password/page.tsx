@@ -23,8 +23,26 @@ export default function ResetPasswordPage() {
       if (event === "PASSWORD_RECOVERY") setStatus("ready");
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) setStatus("ready");
+    // El link de recuperación trae la sesión en el hash:
+    // #access_token=...&refresh_token=...&type=recovery (o #error=... si expiró).
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const accessToken = hash.get("access_token");
+    const refreshToken = hash.get("refresh_token");
+    if (window.location.hash) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
+    // true = sesión lista, false = link inválido, null = seguir esperando el evento.
+    const check: Promise<boolean | null> = hash.get("error")
+      ? Promise.resolve(false)
+      : accessToken && refreshToken
+        ? supabase.auth
+            .setSession({ access_token: accessToken, refresh_token: refreshToken })
+            .then(({ error }) => !error)
+        : supabase.auth.getSession().then(({ data }) => (data.session ? true : null));
+
+    check.then((ok) => {
+      if (ok !== null) setStatus(ok ? "ready" : "invalid");
     });
 
     const timeout = setTimeout(() => {
