@@ -5,11 +5,11 @@ type Guarded = Pick<Ticket, "status" | "assignee_id" | "reporter_id">;
 export const isFinalStatus = (status: string) => status === "resolved" || status === "closed";
 
 /**
- * Reglas de bloqueo (también aplicadas en la base de datos, migración 0013):
+ * Reglas de bloqueo (también aplicadas en la base de datos, migración 0014):
  * - Ticket finalizado (Resuelto/Cerrado): solo un admin cambia estado y asignado.
- * - Ticket ya asignado: solo un admin cambia el asignado.
- * - Un líder cambia el estado de cualquier ticket no finalizado, pero no
- *   elige responsable (salvo en los tickets que él mismo reportó).
+ * - Asignar un ticket sin responsable: líder, QA o quien participa en el ticket.
+ * - Reasignar un ticket que ya tiene responsable: solo líder o admin.
+ * - Estado: quien participa en el ticket o un líder.
  */
 export function ticketPermissions(profile: Pick<Profile, "id" | "role">, t: Guarded) {
   if (profile.role === "admin") return { canChangeStatus: true, canChangeAssignee: true, lockReason: null };
@@ -18,17 +18,16 @@ export function ticketPermissions(profile: Pick<Profile, "id" | "role">, t: Guar
   const finalized = isFinalStatus(t.status);
   const assigned = Boolean(t.assignee_id);
   const isLeader = profile.role === "lider";
+  const isQa = profile.role === "qa";
 
   const canChangeStatus = !finalized && (involved || isLeader);
-  const canChangeAssignee = !finalized && !assigned && involved;
+  const canChangeAssignee = !finalized && (assigned ? isLeader : involved || isLeader || isQa);
 
   const lockReason = finalized
     ? "Ticket finalizado: solo un admin puede cambiar el estado o la persona asignada."
-    : assigned
-      ? "Ticket asignado: solo un admin puede cambiar la persona asignada."
-      : isLeader && !involved
-        ? "Como líder puedes cambiar el estado; la persona asignada la elige un admin o quien reportó el ticket."
-        : null;
+    : assigned && !isLeader
+      ? "Ticket asignado: solo un líder o un admin puede reasignarlo."
+      : null;
 
   return { canChangeStatus, canChangeAssignee, lockReason };
 }
