@@ -24,12 +24,16 @@ import {
 } from "@/lib/types";
 import TeamMetrics, { type MetricPerson, type MetricTicket, type ResolutionStats } from "./TeamMetrics";
 
+// Equipos por los que se puede filtrar el dashboard (todos los roles menos admin).
+const TEAMS: UserRole[] = ["qa", "backend", "frontend", "developer", "marketing", "lider"];
+
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string; status?: string; mine?: string }>;
+  searchParams: Promise<{ project?: string; status?: string; mine?: string; team?: string }>;
 }) {
-  const { project, status, mine } = await searchParams;
+  const { project, status, mine, team: rawTeam } = await searchParams;
+  const teamFilter = TEAMS.includes(rawTeam as UserRole) ? (rawTeam as UserRole) : null;
   const profile = await requireProfile();
   const supabase = await createClient();
 
@@ -48,9 +52,18 @@ export default async function DashboardPage({
   const inactive = new Set<string>((inactiveIds as string[] | null) ?? []);
 
   const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
+  const roleOf = new Map((people ?? []).map((p) => [p.id, p.role as UserRole]));
+
+  // Filtro por equipo: una persona es del equipo por su rol; un ticket lo es si
+  // va dirigido a ese rol o si su responsable es de ese rol.
+  const personInTeam = (id: string | null) => !teamFilter || (id !== null && roleOf.get(id) === teamFilter);
+  const ticketInTeam = (t: { target_role: string | null; assignee_id: string | null }) =>
+    !teamFilter || t.target_role === teamFilter || (t.assignee_id !== null && roleOf.get(t.assignee_id) === teamFilter);
+  const teamTickets = (allTickets ?? []).filter(ticketInTeam);
+
   const top = (counts: Map<string, number>): LeaderboardEntry[] =>
     [...counts.entries()]
-      .filter(([id]) => nameOf.has(id))
+      .filter(([id]) => nameOf.has(id) && personInTeam(id))
       .map(([id, count]) => ({ name: nameOf.get(id)!, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .slice(0, 5);
@@ -72,16 +85,16 @@ export default async function DashboardPage({
   }
 
   const stats = {
-    total: allTickets?.length ?? 0,
-    open: allTickets?.filter((t) => t.status === "open").length ?? 0,
-    inProgress: allTickets?.filter((t) => t.status === "in_progress").length ?? 0,
-    critical: allTickets?.filter((t) => t.severity === "critical").length ?? 0,
+    total: teamTickets.length,
+    open: teamTickets.filter((t) => t.status === "open").length,
+    inProgress: teamTickets.filter((t) => t.status === "in_progress").length,
+    critical: teamTickets.filter((t) => t.severity === "critical").length,
   };
 
   // ---- Métricas de equipo ----
   const DAY = 24 * 60 * 60 * 1000;
   const isOpenStatus = (st: string) => st !== "resolved" && st !== "closed";
-  const openTickets = (allTickets ?? []).filter((t) => isOpenStatus(t.status));
+  const openTickets = teamTickets.filter((t) => isOpenStatus(t.status));
 
   const unassigned = openTickets
     .filter((t) => !t.assignee_id)
@@ -98,7 +111,7 @@ export default async function DashboardPage({
     if (!prev || r.created_at < prev.at) firstResolved.set(r.ticket_id, { at: r.created_at, actor: r.actor_id });
   }
   const resolvedDurations = [...firstResolved.entries()]
-    .filter(([id]) => ticketById.has(id))
+    .filter(([id]) => ticketById.has(id) && ticketInTeam(ticketById.get(id)!))
     .map(([id, { at, actor }]) => {
       const t = ticketById.get(id)!;
       return { t, actor, days: (new Date(at).getTime() - new Date(t.created_at).getTime()) / DAY };
@@ -174,7 +187,6 @@ export default async function DashboardPage({
     pushActivity(c.ticket_id, c.created_at, c.author_id, `comentó: “${body}”`);
   }
 
-  const roleOf = new Map((people ?? []).map((p) => [p.id, p.role as UserRole]));
   const toMetricTicket = (t: NonNullable<typeof allTickets>[number]): MetricTicket => {
     const activity = lastActivity.get(t.id);
     return {
@@ -194,7 +206,7 @@ export default async function DashboardPage({
 
   // Personas activas del equipo (sin admin ni pausados/retirados) con su carga pendiente.
   const team: MetricPerson[] = (people ?? [])
-    .filter((p) => p.role !== "admin" && !inactive.has(p.id))
+    .filter((p) => p.role !== "admin" && !inactive.has(p.id) && personInTeam(p.id))
     .map((p) => ({
       id: p.id,
       name: p.full_name ?? p.email,
@@ -205,8 +217,21 @@ export default async function DashboardPage({
     .sort((a, b) => a.name.localeCompare(b.name));
   const idle = team.filter((p) => p.pending === 0);
   const neverReported = (people ?? []).filter(
-    (p) => p.role === "qa" && !reported.has(p.id) && !inactive.has(p.id),
+    (p) => p.role === "qa" && !reported.has(p.id) && !inactive.has(p.id) && personInTeam(p.id),
   );
+
+  // Links del filtro de equipo: conservan los filtros de la lista de tickets.
+  const teamHref = (value: UserRole | null) => {
+    const params = new URLSearchParams();
+    if (project) params.set("project", project);
+    if (status) params.set("status", status);
+    if (mine) params.set("mine", mine);
+    if (value) params.set("team", value);
+    const qs = params.toString();
+    return `/dashboard${qs ? `?${qs}` : ""}`;
+  };
+  const activeCount = (role: UserRole) =>
+    (people ?? []).filter((p) => p.role === role && !inactive.has(p.id)).length;
 
   let query = supabase
     .from("tickets")
@@ -221,7 +246,7 @@ export default async function DashboardPage({
 
   const { data: tickets, error } = await query;
   const hasFilters = Boolean(project || status || mine);
-  const rows = (tickets as TicketWithRelations[] | null) ?? [];
+  const rows = ((tickets as TicketWithRelations[] | null) ?? []).filter(ticketInTeam);
 
   return (
     <div>
@@ -234,6 +259,30 @@ export default async function DashboardPage({
           </Button>
         }
       />
+
+      <nav aria-label="Filtrar por equipo" className="mb-6 flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+          Equipo
+        </span>
+        {[null, ...TEAMS].map((value) => {
+          const active = teamFilter === value;
+          return (
+            <Link
+              key={value ?? "all"}
+              href={teamHref(value)}
+              aria-current={active ? "page" : undefined}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                active
+                  ? "border-nexa-blue bg-nexa-blue text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-nexa-blue hover:text-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              }`}
+            >
+              {value ? ROLE_LABELS[value] : "Todos"}
+              {value && <span className={active ? "ml-1 text-white/80" : "ml-1 text-slate-400"}>{activeCount(value)}</span>}
+            </Link>
+          );
+        })}
+      </nav>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricCard label="Total" value={stats.total} icon={<TicketIcon />} />
@@ -331,6 +380,7 @@ export default async function DashboardPage({
 
       <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <AutoSubmitForm className="flex flex-wrap gap-2 text-sm" action="/dashboard">
+          {teamFilter && <input type="hidden" name="team" value={teamFilter} />}
           <select
             name="project"
             defaultValue={project ?? ""}
@@ -364,7 +414,7 @@ export default async function DashboardPage({
 
           {hasFilters && (
             <Link
-              href="/dashboard"
+              href={teamFilter ? `/dashboard?team=${teamFilter}` : "/dashboard"}
               className="rounded-md px-3 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
             >
               Limpiar filtros
@@ -390,12 +440,12 @@ export default async function DashboardPage({
         <EmptyState
           title="No hay tickets"
           description={
-            hasFilters
+            hasFilters || teamFilter
               ? "No hay tickets que coincidan con estos filtros."
               : "Todavía no se han reportado tickets para este proyecto."
           }
           action={
-            !hasFilters && (
+            !(hasFilters || teamFilter) && (
               <Button href="/tickets/new" variant="primary" size="sm">
                 <PlusIcon /> Crear ticket
               </Button>
