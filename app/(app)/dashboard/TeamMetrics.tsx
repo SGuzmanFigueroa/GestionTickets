@@ -126,7 +126,7 @@ export default function TeamMetrics({
         onClose={close}
         size="lg"
         title="Carga del equipo por área"
-        description="Tickets pendientes por persona, agrupados por rol (sin contar admins)."
+        description="Tickets pendientes por persona, agrupados por rol (sin contar admins ni personas pausadas o retiradas en Equipo Nexa)."
       >
         <PeoplePanel people={people} />
       </Modal>

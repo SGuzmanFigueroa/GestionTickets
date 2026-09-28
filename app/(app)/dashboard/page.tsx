@@ -33,7 +33,7 @@ export default async function DashboardPage({
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const [{ data: projects }, { data: allTickets }, { data: people }, { data: resolutions }] = await Promise.all([
+  const [{ data: projects }, { data: allTickets }, { data: people }, { data: resolutions }, { data: inactiveIds }] = await Promise.all([
     supabase.from("projects").select("id, name, slug").order("name"),
     supabase.from("tickets").select("id, title, ticket_number, status, severity, target_role, reporter_id, assignee_id, created_at, updated_at, project:projects(code)"),
     supabase.from("profiles").select("id, full_name, email, role"),
@@ -42,7 +42,10 @@ export default async function DashboardPage({
       .select("ticket_id, actor_id, created_at")
       .eq("field", "status")
       .in("new_value", ["resolved", "closed"]),
+    // Pausados/retirados en Equipo Nexa: no cuentan como disponibles.
+    supabase.rpc("inactive_profile_ids"),
   ]);
+  const inactive = new Set<string>((inactiveIds as string[] | null) ?? []);
 
   const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
   const top = (counts: Map<string, number>): LeaderboardEntry[] =>
@@ -189,9 +192,9 @@ export default async function DashboardPage({
     };
   };
 
-  // Personas del equipo (sin admin) con su carga pendiente.
+  // Personas activas del equipo (sin admin ni pausados/retirados) con su carga pendiente.
   const team: MetricPerson[] = (people ?? [])
-    .filter((p) => p.role !== "admin")
+    .filter((p) => p.role !== "admin" && !inactive.has(p.id))
     .map((p) => ({
       id: p.id,
       name: p.full_name ?? p.email,
@@ -201,7 +204,9 @@ export default async function DashboardPage({
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
   const idle = team.filter((p) => p.pending === 0);
-  const neverReported = (people ?? []).filter((p) => p.role === "qa" && !reported.has(p.id));
+  const neverReported = (people ?? []).filter(
+    (p) => p.role === "qa" && !reported.has(p.id) && !inactive.has(p.id),
+  );
 
   let query = supabase
     .from("tickets")
@@ -301,7 +306,7 @@ export default async function DashboardPage({
 
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <p className="text-sm font-semibold text-nexa-navy dark:text-white">Personas sin tickets pendientes</p>
-          <p className="mb-3 text-xs text-slate-400 dark:text-slate-500">Disponibles para recibir trabajo (sin contar admins)</p>
+          <p className="mb-3 text-xs text-slate-400 dark:text-slate-500">Disponibles para recibir trabajo (sin contar admins ni pausados)</p>
           {idle.length === 0 ? (
             <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">Todos tienen trabajo asignado.</p>
           ) : (
