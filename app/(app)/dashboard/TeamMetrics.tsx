@@ -387,24 +387,43 @@ function ResolutionPanel({ stats }: { stats: ResolutionStats }) {
 
 function PeoplePanel({ people }: { people: MetricPerson[] }) {
   const [onlyIdle, setOnlyIdle] = useState(true);
+  const [area, setArea] = useState<UserRole | "all">("all");
   if (people.length === 0) return <Empty>No hay personas en el equipo todavía.</Empty>;
 
-  const visible = onlyIdle ? people.filter((p) => p.pending === 0) : people;
+  const allRoles = USER_ROLES.filter((r) => r !== "admin" && people.some((p) => p.role === r));
+  const inArea = area === "all" ? people : people.filter((p) => p.role === area);
+  const visible = onlyIdle ? inArea.filter((p) => p.pending === 0) : inArea;
   const maxPending = Math.max(1, ...people.map((p) => p.pending));
-  const roles = USER_ROLES.filter((r) => r !== "admin" && people.some((p) => p.role === r));
+  const roles = area === "all" ? allRoles : [area];
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap gap-1.5">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         <Chip active={onlyIdle} onClick={() => setOnlyIdle(true)}>
-          Solo sin carga ({people.filter((p) => p.pending === 0).length})
+          Solo sin carga ({inArea.filter((p) => p.pending === 0).length})
         </Chip>
         <Chip active={!onlyIdle} onClick={() => setOnlyIdle(false)}>
-          Todo el equipo ({people.length})
+          Todo el equipo ({inArea.length})
         </Chip>
       </div>
 
-      <div className="grid max-h-[60vh] gap-3 overflow-y-auto sm:grid-cols-2">
+      {allRoles.length > 1 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3 dark:border-slate-700">
+          <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Equipo
+          </span>
+          <Chip active={area === "all"} onClick={() => setArea("all")}>
+            Todos
+          </Chip>
+          {allRoles.map((r) => (
+            <Chip key={r} active={area === r} onClick={() => setArea(r)}>
+              {ROLE_LABELS[r]} ({people.filter((p) => p.role === r).length})
+            </Chip>
+          ))}
+        </div>
+      )}
+
+      <div className={`grid max-h-[60vh] gap-3 overflow-y-auto ${roles.length > 1 ? "sm:grid-cols-2" : ""}`}>
         {roles.map((role) => {
           const members = people.filter((p) => p.role === role);
           const free = members.filter((p) => p.pending === 0).length;
