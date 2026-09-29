@@ -1,23 +1,27 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 
-export async function getCurrentProfile(): Promise<Profile | null> {
+// cache(): the layout and the page share one auth check + one profiles
+// query per request instead of repeating both round trips to Supabase.
+// getClaims() verifies the JWT locally when the project uses asymmetric
+// signing keys (falls back to a getUser() network call otherwise).
+export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub;
 
-  if (!user) return null;
+  if (!userId) return null;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, email, full_name, role, created_at")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   return profile as Profile | null;
-}
+});
 
 export async function requireProfile(): Promise<Profile> {
   const profile = await getCurrentProfile();

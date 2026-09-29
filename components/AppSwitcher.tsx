@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 // Apps de Nexa entre las que se puede saltar. Mantener igual en las 3 apps.
 const NEXA_APPS = [
@@ -41,6 +42,25 @@ const NEXA_APPS = [
 ] as const;
 
 const CURRENT_APP = "tickets";
+
+// Apps que comparten el mismo proyecto Supabase: al saltar entre ellas se
+// lleva la sesión (ver app/auth/sso y app/api/sso) para no tener que
+// iniciar sesión dos veces.
+const SSO_APPS = new Set<string>(["equipo", "tickets"]);
+
+async function goWithSession(href: string) {
+  const {
+    data: { session },
+  } = await createClient().auth.getSession();
+  if (!session) {
+    window.location.href = href;
+    return;
+  }
+  const url = new URL(href);
+  window.location.href = `${url.origin}/auth/sso#access_token=${encodeURIComponent(
+    session.access_token,
+  )}&next=${encodeURIComponent(url.pathname)}`;
+}
 
 export default function AppSwitcher({
   buttonClassName = "text-slate-500 hover:bg-slate-200/60 dark:text-slate-400 dark:hover:bg-slate-800",
@@ -106,6 +126,13 @@ export default function AppSwitcher({
                       if (current) {
                         e.preventDefault();
                         setOpen(false);
+                        return;
+                      }
+                      const plainClick =
+                        e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey;
+                      if (plainClick && SSO_APPS.has(app.id)) {
+                        e.preventDefault();
+                        goWithSession(app.href);
                       }
                     }}
                     className={`flex items-center gap-3 rounded-md px-2 py-2 transition-colors ${

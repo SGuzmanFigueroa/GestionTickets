@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/reset-password", "/auth/callback"];
+const PUBLIC_PATHS = ["/login", "/reset-password", "/auth/callback", "/auth/sso", "/api/sso"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -25,9 +25,10 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() refreshes the session if needed and verifies the JWT
+  // locally, avoiding a round trip to Supabase Auth on every navigation.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   const isPublicPath = PUBLIC_PATHS.some((path) => request.nextUrl.pathname.startsWith(path));
 
