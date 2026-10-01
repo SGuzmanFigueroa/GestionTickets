@@ -122,7 +122,7 @@ export async function addComment(formData: FormData) {
 }
 
 export async function updateTicketDetails(formData: FormData) {
-  await requireAdmin();
+  const profile = await requireProfile();
   const ticketId = String(formData.get("ticket_id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
@@ -132,11 +132,25 @@ export async function updateTicketDetails(formData: FormData) {
   const priority = String(formData.get("priority") ?? "medium");
   const targetRole = String(formData.get("target_role") ?? "");
 
+  const supabase = await createClient();
+  const { data: current } = await supabase
+    .from("tickets")
+    .select("status, assignee_id, reporter_id")
+    .eq("id", ticketId)
+    .single();
+
+  if (!current || !ticketPermissions(profile, current).canEditDetails) {
+    redirect(
+      `/tickets/${ticketId}?error=${encodeURIComponent(
+        "Solo un líder puede editar el ticket, y solo mientras no esté resuelto o cerrado.",
+      )}`,
+    );
+  }
+
   if (!title || !description) {
     redirect(`/tickets/${ticketId}?error=${encodeURIComponent("Completa título y descripción.")}`);
   }
 
-  const supabase = await createClient();
   const { error } = await supabase
     .from("tickets")
     .update({

@@ -94,7 +94,7 @@ export default async function TicketDetailPage({
     return `cambió el asignado de "${nameOf(h.old_value)}" a "${nameOf(h.new_value)}"`;
   }
 
-  const { canChangeStatus, canChangeAssignee, lockReason } = ticketPermissions(profile, t);
+  const { canChangeStatus, canChangeAssignee, canEditDetails, lockReason } = ticketPermissions(profile, t);
 
   return (
     <div className="max-w-3xl">
@@ -271,7 +271,7 @@ export default async function TicketDetailPage({
         </div>
       </div>
 
-      {profile.role === "admin" && (
+      {canEditDetails && (
         <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <form action={updateTicketDetails} className="space-y-4">
             <input type="hidden" name="ticket_id" value={t.id} />
