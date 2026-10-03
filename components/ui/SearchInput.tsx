@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { SearchIcon } from "./icons";
 
+/** Minúsculas y sin tildes, para que "Joaquin" encuentre "Joaquín". */
+function normalize(text: string) {
+  return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
 /**
  * Filters rows already rendered by the server: any element matching
  * `rowSelector` inside `scopeSelector` gets `hidden` toggled based on
@@ -28,12 +33,14 @@ export default function SearchInput({
     const scope = document.querySelector(scopeSelector);
     if (!scope) return;
     const rows = scope.querySelectorAll<HTMLElement>(rowSelector);
-    const needle = value.trim().toLowerCase();
+    const needle = normalize(value.trim());
+    // Cada palabra debe aparecer, en cualquier orden ("joaquin mkt").
+    const words = needle.split(/\s+/).filter(Boolean);
     let anyVisible = false;
 
     rows.forEach((row) => {
-      const haystack = (row.dataset.searchText ?? row.textContent ?? "").toLowerCase();
-      const matches = needle.length === 0 || haystack.includes(needle);
+      const haystack = normalize(row.dataset.searchText ?? row.textContent ?? "");
+      const matches = words.length === 0 || words.every((w) => haystack.includes(w));
       row.classList.toggle("hidden", !matches);
       if (matches) anyVisible = true;
     });

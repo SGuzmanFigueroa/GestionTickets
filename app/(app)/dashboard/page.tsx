@@ -423,7 +423,7 @@ export default async function DashboardPage({
         </AutoSubmitForm>
 
         <SearchInput
-          placeholder="Buscar por código o título..."
+          placeholder="Buscar por código, título o persona..."
           scopeSelector="#tickets-results"
           noResultsSelector="#tickets-no-local-matches"
           className="sm:w-64"
@@ -477,7 +477,7 @@ export default async function DashboardPage({
                       <tr
                         key={t.id}
                         data-search-row
-                        data-search-text={`${code} ${t.title}`}
+                        data-search-text={`${code} ${t.title} ${assigneeName ?? ""} ${t.reporter?.full_name ?? t.reporter?.email ?? ""} ${t.project?.name ?? ""}`}
                         className="h-14 transition-colors hover:bg-nexa-light/30 dark:hover:bg-slate-700/40"
                       >
                         <td className="px-4 py-2.5">
@@ -539,7 +539,7 @@ export default async function DashboardPage({
                   key={t.id}
                   href={`/tickets/${t.id}`}
                   data-search-row
-                  data-search-text={`${code} ${t.title}`}
+                  data-search-text={`${code} ${t.title} ${assigneeName ?? ""} ${t.reporter?.full_name ?? t.reporter?.email ?? ""} ${t.project?.name ?? ""}`}
                   className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800"
                 >
                   <div className="mb-1.5 flex items-center justify-between gap-2">
