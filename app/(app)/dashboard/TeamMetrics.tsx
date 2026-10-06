@@ -116,7 +116,7 @@ export default function TeamMetrics({
         onClose={close}
         size="lg"
         title="Tiempo de resolución"
-        description="Desde que se crea el ticket hasta que pasa por primera vez a Resuelto o Cerrado."
+        description="Desde que se crea el ticket hasta que pasa por primera vez a Certificado o Cerrado."
       >
         <ResolutionPanel stats={resolution} />
       </Modal>

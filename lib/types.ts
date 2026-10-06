@@ -15,6 +15,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 export type TicketStatus =
   | "open"
   | "in_progress"
+  | "done"
   | "in_review"
   | "resolved"
   | "closed"
@@ -23,20 +24,32 @@ export type TicketStatus =
 export const TICKET_STATUSES: TicketStatus[] = [
   "open",
   "in_progress",
+  "done",
   "in_review",
   "resolved",
   "closed",
   "reopened",
 ];
 
+// "resolved" se muestra como "Certificado": QA ya lo revisó y lo dio por bueno.
 export const STATUS_LABELS: Record<TicketStatus, string> = {
-  open: "Abierto",
+  open: "Por hacer",
   in_progress: "En progreso",
+  done: "Hecho",
   in_review: "En revisión",
-  resolved: "Resuelto",
+  resolved: "Certificado",
   closed: "Cerrado",
   reopened: "Reabierto",
 };
+
+/** Columnas del tablero kanban, en orden, con los estados que agrupa cada una. */
+export const BOARD_COLUMNS: { id: TicketStatus; label: string; statuses: TicketStatus[] }[] = [
+  { id: "open", label: "Por hacer", statuses: ["open", "reopened"] },
+  { id: "in_progress", label: "En progreso", statuses: ["in_progress"] },
+  { id: "done", label: "Hecho", statuses: ["done"] },
+  { id: "in_review", label: "En revisión", statuses: ["in_review"] },
+  { id: "resolved", label: "Certificado", statuses: ["resolved"] },
+];
 
 export type TicketSeverity = "critical" | "high" | "medium" | "low";
 export const TICKET_SEVERITIES: TicketSeverity[] = ["critical", "high", "medium", "low"];

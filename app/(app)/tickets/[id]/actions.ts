@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireProfile } from "@/lib/auth";
 import { sendTicketAssignedEmail } from "@/lib/email";
-import { ticketPermissions } from "@/lib/ticket-permissions";
+import { allowedStatuses, ticketPermissions } from "@/lib/ticket-permissions";
+import type { TicketStatus } from "@/lib/types";
 
 export async function updateTicketStatus(formData: FormData) {
   const profile = await requireProfile();
@@ -18,8 +19,8 @@ export async function updateTicketStatus(formData: FormData) {
     .eq("id", ticketId)
     .single();
 
-  if (!current || !ticketPermissions(profile, current).canChangeStatus) {
-    redirect(`/tickets/${ticketId}?error=${encodeURIComponent("No tienes permiso para cambiar el estado de este ticket.")}`);
+  if (!current || !allowedStatuses(profile, current).includes(status as TicketStatus)) {
+    redirect(`/tickets/${ticketId}?error=${encodeURIComponent("No puedes mover este ticket a ese estado.")}`);
   }
 
   const { error } = await supabase.from("tickets").update({ status }).eq("id", ticketId);
@@ -142,7 +143,7 @@ export async function updateTicketDetails(formData: FormData) {
   if (!current || !ticketPermissions(profile, current).canEditDetails) {
     redirect(
       `/tickets/${ticketId}?error=${encodeURIComponent(
-        "Solo un líder puede editar el ticket, y solo mientras no esté resuelto o cerrado.",
+        "Solo un líder puede editar el ticket, y solo mientras no esté certificado o cerrado.",
       )}`,
     );
   }

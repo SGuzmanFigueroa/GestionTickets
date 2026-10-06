@@ -93,3 +93,13 @@ export function ProgressIcon({ className = "" }: IconProps) {
     </svg>
   );
 }
+
+export function BoardIcon({ className = "" }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" className={`${base} ${className}`} width="16" height="16">
+      <rect x="2.5" y="3.5" width="4.5" height="13" rx="1.2" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="8.75" y="3.5" width="4.5" height="9" rx="1.2" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="15" y="3.5" width="2.5" height="6" rx="1" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}

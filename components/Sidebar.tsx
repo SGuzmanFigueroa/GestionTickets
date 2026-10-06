@@ -8,7 +8,7 @@ import ThemeToggle from "./ThemeToggle";
 import AppSwitcher from "./AppSwitcher";
 import NotificationBell from "./NotificationBell";
 import Avatar from "@/components/ui/Avatar";
-import { ClipboardCheckIcon, FolderIcon, PlusIcon, ProgressIcon, TicketIcon, UsersIcon } from "@/components/ui/icons";
+import { BoardIcon, ClipboardCheckIcon, FolderIcon, PlusIcon, ProgressIcon, TicketIcon, UsersIcon } from "@/components/ui/icons";
 
 export default function Sidebar({ profile, isLeader = false }: { profile: Profile; isLeader?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -90,6 +90,9 @@ export default function Sidebar({ profile, isLeader = false }: { profile: Profil
             </p>
             <NavLink href="/dashboard" icon={<TicketIcon />} onNavigate={close}>
               Tickets
+            </NavLink>
+            <NavLink href="/board" icon={<BoardIcon />} onNavigate={close}>
+              Tablero
             </NavLink>
             <NavLink href="/tickets/new" icon={<PlusIcon />} onNavigate={close}>
               Nuevo ticket

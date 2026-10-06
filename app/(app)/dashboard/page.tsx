@@ -300,7 +300,7 @@ export default async function DashboardPage({
         />
         <Leaderboard
           title="Quién resuelve más"
-          subtitle="Tickets pasados a Resuelto o Cerrado"
+          subtitle="Tickets pasados a Certificado o Cerrado"
           entries={top(resolved)}
           unit="resueltos"
         />

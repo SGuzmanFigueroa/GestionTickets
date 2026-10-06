@@ -94,7 +94,7 @@ export default async function TicketDetailPage({
     return `cambió el asignado de "${nameOf(h.old_value)}" a "${nameOf(h.new_value)}"`;
   }
 
-  const { canChangeStatus, canChangeAssignee, canEditDetails, lockReason } = ticketPermissions(profile, t);
+  const { canChangeStatus, nextStatuses, canChangeAssignee, canEditDetails, lockReason } = ticketPermissions(profile, t);
 
   return (
     <div className="max-w-3xl">
@@ -222,7 +222,7 @@ export default async function TicketDetailPage({
                 disabled={!canChangeStatus}
                 className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 disabled:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-800/60"
               >
-                {TICKET_STATUSES.map((s) => (
+                {TICKET_STATUSES.filter((s) => s === t.status || nextStatuses.includes(s)).map((s) => (
                   <option key={s} value={s}>
                     {STATUS_LABELS[s]}
                   </option>

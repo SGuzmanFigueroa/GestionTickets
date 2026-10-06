@@ -9,6 +9,7 @@ import type { Profile } from "@/lib/types";
 
 const SEGMENT_LABELS: { test: (path: string) => boolean; label: string }[] = [
   { test: (p) => p === "/dashboard", label: "Tickets" },
+  { test: (p) => p === "/board", label: "Tablero" },
   { test: (p) => p === "/tickets/new", label: "Nuevo ticket" },
   { test: (p) => /^\/tickets\/[^/]+$/.test(p), label: "Detalle de ticket" },
   { test: (p) => p === "/test-cases", label: "Casos de prueba" },
