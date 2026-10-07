@@ -37,10 +37,10 @@ export default async function DashboardPage({
   const profile = await requireProfile();
   const supabase = await createClient();
 
-  const [{ data: projects }, { data: allTickets }, { data: people }, { data: resolutions }, { data: inactiveIds }] = await Promise.all([
+  const [{ data: projects }, { data: allTickets }, { data: people }, { data: resolutions }, { data: inactiveIds }, { data: botLoad }] = await Promise.all([
     supabase.from("projects").select("id, name, slug").order("name"),
     supabase.from("tickets").select("id, title, ticket_number, status, severity, target_role, reporter_id, assignee_id, created_at, updated_at, project:projects(code)"),
-    supabase.from("profiles").select("id, full_name, email, role"),
+    supabase.from("profiles").select("id, full_name, email, role, discord_id"),
     supabase
       .from("ticket_history")
       .select("ticket_id, actor_id, created_at")
@@ -48,8 +48,13 @@ export default async function DashboardPage({
       .in("new_value", ["resolved", "closed"]),
     // Pausados/retirados en Equipo Nexa: no cuentan como disponibles.
     supabase.rpc("inactive_profile_ids"),
+    // Tareas abiertas del bot de Discord sin ticket vinculado (las publica el bot cada 2 min).
+    supabase.from("bot_task_load").select("discord_id, open_tasks"),
   ]);
   const inactive = new Set<string>((inactiveIds as string[] | null) ?? []);
+  const profileByDiscord = new Map(
+    (people ?? []).filter((p) => p.discord_id).map((p) => [String(p.discord_id), p.id]),
+  );
 
   const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
   const roleOf = new Map((people ?? []).map((p) => [p.id, p.role as UserRole]));
@@ -75,6 +80,11 @@ export default async function DashboardPage({
     if (t.assignee_id && t.status !== "resolved" && t.status !== "closed") {
       pending.set(t.assignee_id, (pending.get(t.assignee_id) ?? 0) + 1);
     }
+  }
+  // Las tareas del bot también son carga: quien tiene tareas abiertas no está "sin carga".
+  for (const row of botLoad ?? []) {
+    const profileId = profileByDiscord.get(row.discord_id);
+    if (profileId && row.open_tasks > 0) pending.set(profileId, (pending.get(profileId) ?? 0) + row.open_tasks);
   }
   // Quien resuelve = quien cambió el estado a Resuelto/Cerrado (un ticket cuenta una vez por persona).
   const resolvedPairs = new Set((resolutions ?? []).map((r) => `${r.actor_id}|${r.ticket_id}`));
@@ -177,7 +187,9 @@ export default async function DashboardPage({
     const text =
       h.field === "status"
         ? `cambió el estado a "${STATUS_LABELS[h.new_value as TicketStatus] ?? h.new_value}"`
-        : h.new_value
+        : h.field === "project"
+          ? `movió el ticket a ${h.new_value ?? "otro proyecto"}`
+          : h.new_value
           ? `asignó el ticket a ${nameOf.get(h.new_value) ?? "otra persona"}`
           : "quitó la persona asignada";
     pushActivity(h.ticket_id, h.created_at, h.actor_id, text);
@@ -306,7 +318,7 @@ export default async function DashboardPage({
         />
         <Leaderboard
           title="Más carga pendiente"
-          subtitle="Tickets asignados aún sin resolver"
+          subtitle="Tickets sin certificar y tareas abiertas del bot"
           entries={top(pending)}
           unit="pendientes"
         />

@@ -55,6 +55,14 @@ export default async function TicketDetailPage({
 
   const t = ticket as TicketWithRelations;
 
+  // Proyectos a los que se puede mover el ticket: todos para el admin; los propios para un líder.
+  const { data: myProjectIds } = profile.role === "admin" ? { data: null } : await supabase.rpc("my_project_ids");
+  let projectsQuery = supabase.from("projects").select("id, name, code").order("name");
+  if (profile.role !== "admin") {
+    projectsQuery = projectsQuery.in("id", [...((myProjectIds as string[] | null) ?? []), t.project_id]);
+  }
+  const { data: movableProjects } = await projectsQuery;
+
   const [{ data: comments }, { data: people }, { data: attachments }, { data: history }] =
     await Promise.all([
       supabase
@@ -88,6 +96,10 @@ export default async function TicketDetailPage({
       const from = h.old_value ? STATUS_LABELS[h.old_value as keyof typeof STATUS_LABELS] : "—";
       const to = h.new_value ? STATUS_LABELS[h.new_value as keyof typeof STATUS_LABELS] : "—";
       return `cambió el estado de "${from}" a "${to}"`;
+    }
+    if (h.field === "project") {
+      // old_value / new_value guardan el código anterior y el nuevo (ej. MKT-5 → INV-77).
+      return `movió el ticket de ${h.old_value ?? "—"} a ${h.new_value ?? "—"}`;
     }
     const nameOf = (userId: string | null) =>
       userId ? peopleById.get(userId)?.full_name ?? peopleById.get(userId)?.email ?? "usuario eliminado" : "Sin asignar";
@@ -276,6 +288,28 @@ export default async function TicketDetailPage({
           <form action={updateTicketDetails} className="space-y-4">
             <input type="hidden" name="ticket_id" value={t.id} />
             <h2 className="text-sm font-semibold text-nexa-navy dark:text-white">Editar ticket</h2>
+
+            <div>
+              <label htmlFor="edit-project" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Proyecto
+              </label>
+              <select
+                id="edit-project"
+                name="project_id"
+                defaultValue={t.project_id}
+                aria-describedby="edit-project-hint"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-nexa-blue focus:ring-2 focus:ring-nexa-blue/20 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              >
+                {(movableProjects ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code} · {p.name}
+                  </option>
+                ))}
+              </select>
+              <p id="edit-project-hint" className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                Si lo cambias, el ticket recibe el siguiente código del proyecto nuevo.
+              </p>
+            </div>
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Título</label>

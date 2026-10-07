@@ -132,11 +132,12 @@ export async function updateTicketDetails(formData: FormData) {
   const severity = String(formData.get("severity") ?? "medium");
   const priority = String(formData.get("priority") ?? "medium");
   const targetRole = String(formData.get("target_role") ?? "");
+  const projectId = String(formData.get("project_id") ?? "");
 
   const supabase = await createClient();
   const { data: current } = await supabase
     .from("tickets")
-    .select("status, assignee_id, reporter_id")
+    .select("status, assignee_id, reporter_id, project_id, ticket_number, project:projects(code)")
     .eq("id", ticketId)
     .single();
 
@@ -152,6 +153,15 @@ export async function updateTicketDetails(formData: FormData) {
     redirect(`/tickets/${ticketId}?error=${encodeURIComponent("Completa título y descripción.")}`);
   }
 
+  // Cambio de proyecto: el admin a cualquiera; un líder solo a uno de sus proyectos.
+  const movingProject = Boolean(projectId) && projectId !== current.project_id;
+  if (movingProject && profile.role !== "admin") {
+    const { data: myProjectIds } = await supabase.rpc("my_project_ids");
+    if (!((myProjectIds as string[] | null) ?? []).includes(projectId)) {
+      redirect(`/tickets/${ticketId}?error=${encodeURIComponent("Solo puedes mover el ticket a uno de tus proyectos.")}`);
+    }
+  }
+
   const { error } = await supabase
     .from("tickets")
     .update({
@@ -162,11 +172,30 @@ export async function updateTicketDetails(formData: FormData) {
       severity,
       priority,
       target_role: targetRole || null,
+      ...(movingProject ? { project_id: projectId } : {}),
     })
     .eq("id", ticketId);
 
   if (error) {
     redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  if (movingProject) {
+    // Guardamos el código anterior y el nuevo (el nuevo número lo asigna la base).
+    const { data: moved } = await supabase
+      .from("tickets")
+      .select("ticket_number, project:projects(code)")
+      .eq("id", ticketId)
+      .single();
+    const codeOf = (row: { ticket_number: number; project: unknown } | null) =>
+      row ? `${(row.project as { code: string } | null)?.code}-${row.ticket_number}` : null;
+    await supabase.from("ticket_history").insert({
+      ticket_id: ticketId,
+      actor_id: profile.id,
+      field: "project",
+      old_value: codeOf(current),
+      new_value: codeOf(moved),
+    });
   }
 
   redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Ticket actualizado.")}`);
