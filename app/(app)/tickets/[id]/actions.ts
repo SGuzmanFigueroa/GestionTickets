@@ -1,33 +1,46 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireProfile } from "@/lib/auth";
 import { sendTicketAssignedEmail } from "@/lib/email";
 import { allowedStatuses, ticketPermissions } from "@/lib/ticket-permissions";
-import type { TicketStatus } from "@/lib/types";
+import {
+  TICKET_PRIORITIES,
+  TICKET_SEVERITIES,
+  USER_ROLES,
+  type TicketPriority,
+  type TicketSeverity,
+  type TicketStatus,
+  type UserRole,
+} from "@/lib/types";
 
-export async function updateTicketStatus(formData: FormData) {
+// Acciones de edición inline del detalle del ticket. Devuelven un error
+// legible (o null) en vez de redirigir, para que el campo pueda volver a su
+// valor anterior si algo falla. Las reglas son las mismas de
+// lib/ticket-permissions.ts y del trigger enforce_ticket_locks.
+
+type Result = { error: string | null };
+
+const GUARDED_COLUMNS = "status, assignee_id, reporter_id, project_id, ticket_number, project:projects(code)";
+
+function codeOf(row: { ticket_number: number; project: unknown } | null) {
+  return row ? `${(row.project as { code: string } | null)?.code}-${row.ticket_number}` : null;
+}
+
+export async function changeTicketStatus(ticketId: string, status: TicketStatus): Promise<Result> {
   const profile = await requireProfile();
-  const ticketId = String(formData.get("ticket_id") ?? "");
-  const status = String(formData.get("status") ?? "");
   const supabase = await createClient();
+  const { data: current } = await supabase.from("tickets").select(GUARDED_COLUMNS).eq("id", ticketId).single();
 
-  const { data: current } = await supabase
-    .from("tickets")
-    .select("status, assignee_id, reporter_id")
-    .eq("id", ticketId)
-    .single();
-
-  if (!current || !allowedStatuses(profile, current).includes(status as TicketStatus)) {
-    redirect(`/tickets/${ticketId}?error=${encodeURIComponent("No puedes mover este ticket a ese estado.")}`);
+  if (!current) return { error: "No encontramos este ticket." };
+  if (!allowedStatuses(profile, current).includes(status)) {
+    return { error: "No puedes mover este ticket a ese estado." };
   }
 
   const { error } = await supabase.from("tickets").update({ status }).eq("id", ticketId);
-
-  if (error) {
-    redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
-  }
+  if (error) return { error: error.message };
 
   await supabase.from("ticket_history").insert({
     ticket_id: ticketId,
@@ -37,58 +50,40 @@ export async function updateTicketStatus(formData: FormData) {
     new_value: status,
   });
 
-  redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Estado actualizado.")}`);
+  revalidatePath(`/tickets/${ticketId}`);
+  return { error: null };
 }
 
-export async function updateTicketAssignee(formData: FormData) {
+export async function changeTicketAssignee(ticketId: string, assigneeId: string | null): Promise<Result> {
   const profile = await requireProfile();
-  const ticketId = String(formData.get("ticket_id") ?? "");
-  const assigneeId = String(formData.get("assignee_id") ?? "");
   const supabase = await createClient();
+  const { data: current } = await supabase.from("tickets").select(GUARDED_COLUMNS).eq("id", ticketId).single();
 
-  const { data: current } = await supabase
-    .from("tickets")
-    .select("status, assignee_id, reporter_id")
-    .eq("id", ticketId)
-    .single();
-
-  if (!current || !ticketPermissions(profile, current).canChangeAssignee) {
-    redirect(`/tickets/${ticketId}?error=${encodeURIComponent("No tienes permiso para cambiar la persona asignada de este ticket.")}`);
+  if (!current) return { error: "No encontramos este ticket." };
+  if (!ticketPermissions(profile, current).canChangeAssignee) {
+    return { error: "No tienes permiso para cambiar la persona asignada de este ticket." };
   }
 
-  const { error } = await supabase
-    .from("tickets")
-    .update({ assignee_id: assigneeId || null })
-    .eq("id", ticketId);
-
-  if (error) {
-    redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
-  }
+  const { error } = await supabase.from("tickets").update({ assignee_id: assigneeId }).eq("id", ticketId);
+  if (error) return { error: error.message };
 
   await supabase.from("ticket_history").insert({
     ticket_id: ticketId,
     actor_id: profile.id,
     field: "assignee",
     old_value: current.assignee_id,
-    new_value: assigneeId || null,
+    new_value: assigneeId,
   });
 
   if (assigneeId && assigneeId !== current.assignee_id) {
     const [{ data: ticket }, { data: assignee }] = await Promise.all([
-      supabase.from("tickets").select("title, ticket_number, project_id").eq("id", ticketId).single(),
+      supabase.from("tickets").select("title, ticket_number, project:projects(code)").eq("id", ticketId).single(),
       supabase.from("profiles").select("email").eq("id", assigneeId).single(),
     ]);
-
     if (ticket && assignee?.email) {
-      const { data: project } = await supabase
-        .from("projects")
-        .select("code")
-        .eq("id", ticket.project_id)
-        .single();
-
       await sendTicketAssignedEmail({
         to: assignee.email,
-        ticketCode: `${project?.code}-${ticket.ticket_number}`,
+        ticketCode: codeOf(ticket) ?? "",
         ticketTitle: ticket.title,
         ticketId,
         assignedByName: profile.full_name ?? profile.email,
@@ -96,7 +91,98 @@ export async function updateTicketAssignee(formData: FormData) {
     }
   }
 
-  redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Asignación actualizada.")}`);
+  revalidatePath(`/tickets/${ticketId}`);
+  return { error: null };
+}
+
+export interface TicketFieldsPatch {
+  title?: string;
+  description?: string;
+  steps_to_reproduce?: string | null;
+  environment?: string | null;
+  severity?: TicketSeverity;
+  priority?: TicketPriority;
+  target_role?: UserRole | null;
+  project_id?: string;
+}
+
+/** Edita uno o varios datos del ticket (título, descripción, prioridad, proyecto…). Solo líder (no finalizado) o admin. */
+export async function updateTicketFields(
+  ticketId: string,
+  patch: TicketFieldsPatch,
+): Promise<Result & { newCode?: string | null }> {
+  const profile = await requireProfile();
+  const supabase = await createClient();
+  const { data: current } = await supabase.from("tickets").select(GUARDED_COLUMNS).eq("id", ticketId).single();
+
+  if (!current) return { error: "No encontramos este ticket." };
+  if (!ticketPermissions(profile, current).canEditDetails) {
+    return { error: "Solo un líder puede editar el ticket, y solo mientras no esté certificado o cerrado." };
+  }
+
+  const update: Record<string, unknown> = {};
+  if (patch.title !== undefined) {
+    const title = patch.title.trim();
+    if (!title) return { error: "El título no puede quedar vacío." };
+    update.title = title;
+  }
+  if (patch.description !== undefined) {
+    const description = patch.description.trim();
+    if (!description) return { error: "La descripción no puede quedar vacía." };
+    update.description = description;
+  }
+  if (patch.steps_to_reproduce !== undefined) update.steps_to_reproduce = patch.steps_to_reproduce?.trim() || null;
+  if (patch.environment !== undefined) update.environment = patch.environment?.trim() || null;
+  if (patch.severity !== undefined) {
+    if (!TICKET_SEVERITIES.includes(patch.severity)) return { error: "Severidad inválida." };
+    update.severity = patch.severity;
+  }
+  if (patch.priority !== undefined) {
+    if (!TICKET_PRIORITIES.includes(patch.priority)) return { error: "Prioridad inválida." };
+    update.priority = patch.priority;
+  }
+  if (patch.target_role !== undefined) {
+    if (patch.target_role !== null && !USER_ROLES.includes(patch.target_role)) return { error: "Equipo inválido." };
+    update.target_role = patch.target_role;
+  }
+
+  // Cambio de proyecto: el admin a cualquiera; un líder solo a uno de sus proyectos.
+  const movingProject = Boolean(patch.project_id) && patch.project_id !== current.project_id;
+  if (movingProject) {
+    if (profile.role !== "admin") {
+      const { data: myProjectIds } = await supabase.rpc("my_project_ids");
+      if (!((myProjectIds as string[] | null) ?? []).includes(patch.project_id!)) {
+        return { error: "Solo puedes mover el ticket a uno de tus proyectos." };
+      }
+    }
+    update.project_id = patch.project_id;
+  }
+
+  if (Object.keys(update).length === 0) return { error: null };
+
+  const { error } = await supabase.from("tickets").update(update).eq("id", ticketId);
+  if (error) return { error: error.message };
+
+  let newCode: string | null = null;
+  if (movingProject) {
+    // Guardamos el código anterior y el nuevo (el nuevo número lo asigna la base).
+    const { data: moved } = await supabase
+      .from("tickets")
+      .select("ticket_number, project:projects(code)")
+      .eq("id", ticketId)
+      .single();
+    newCode = codeOf(moved);
+    await supabase.from("ticket_history").insert({
+      ticket_id: ticketId,
+      actor_id: profile.id,
+      field: "project",
+      old_value: codeOf(current),
+      new_value: newCode,
+    });
+  }
+
+  revalidatePath(`/tickets/${ticketId}`);
+  return { error: null, newCode };
 }
 
 export async function addComment(formData: FormData) {
@@ -119,86 +205,7 @@ export async function addComment(formData: FormData) {
     redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Comentario agregado.")}`);
-}
-
-export async function updateTicketDetails(formData: FormData) {
-  const profile = await requireProfile();
-  const ticketId = String(formData.get("ticket_id") ?? "");
-  const title = String(formData.get("title") ?? "").trim();
-  const description = String(formData.get("description") ?? "").trim();
-  const stepsToReproduce = String(formData.get("steps_to_reproduce") ?? "").trim();
-  const environment = String(formData.get("environment") ?? "").trim();
-  const severity = String(formData.get("severity") ?? "medium");
-  const priority = String(formData.get("priority") ?? "medium");
-  const targetRole = String(formData.get("target_role") ?? "");
-  const projectId = String(formData.get("project_id") ?? "");
-
-  const supabase = await createClient();
-  const { data: current } = await supabase
-    .from("tickets")
-    .select("status, assignee_id, reporter_id, project_id, ticket_number, project:projects(code)")
-    .eq("id", ticketId)
-    .single();
-
-  if (!current || !ticketPermissions(profile, current).canEditDetails) {
-    redirect(
-      `/tickets/${ticketId}?error=${encodeURIComponent(
-        "Solo un líder puede editar el ticket, y solo mientras no esté certificado o cerrado.",
-      )}`,
-    );
-  }
-
-  if (!title || !description) {
-    redirect(`/tickets/${ticketId}?error=${encodeURIComponent("Completa título y descripción.")}`);
-  }
-
-  // Cambio de proyecto: el admin a cualquiera; un líder solo a uno de sus proyectos.
-  const movingProject = Boolean(projectId) && projectId !== current.project_id;
-  if (movingProject && profile.role !== "admin") {
-    const { data: myProjectIds } = await supabase.rpc("my_project_ids");
-    if (!((myProjectIds as string[] | null) ?? []).includes(projectId)) {
-      redirect(`/tickets/${ticketId}?error=${encodeURIComponent("Solo puedes mover el ticket a uno de tus proyectos.")}`);
-    }
-  }
-
-  const { error } = await supabase
-    .from("tickets")
-    .update({
-      title,
-      description,
-      steps_to_reproduce: stepsToReproduce || null,
-      environment: environment || null,
-      severity,
-      priority,
-      target_role: targetRole || null,
-      ...(movingProject ? { project_id: projectId } : {}),
-    })
-    .eq("id", ticketId);
-
-  if (error) {
-    redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
-  }
-
-  if (movingProject) {
-    // Guardamos el código anterior y el nuevo (el nuevo número lo asigna la base).
-    const { data: moved } = await supabase
-      .from("tickets")
-      .select("ticket_number, project:projects(code)")
-      .eq("id", ticketId)
-      .single();
-    const codeOf = (row: { ticket_number: number; project: unknown } | null) =>
-      row ? `${(row.project as { code: string } | null)?.code}-${row.ticket_number}` : null;
-    await supabase.from("ticket_history").insert({
-      ticket_id: ticketId,
-      actor_id: profile.id,
-      field: "project",
-      old_value: codeOf(current),
-      new_value: codeOf(moved),
-    });
-  }
-
-  redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Ticket actualizado.")}`);
+  redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Comentario agregado")}`);
 }
 
 export async function addTicketAttachments(formData: FormData) {
@@ -226,7 +233,7 @@ export async function addTicketAttachments(formData: FormData) {
     redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect(`/tickets/${ticketId}?success=${encodeURIComponent("Imagen adjuntada.")}`);
+  redirect(`/tickets/${ticketId}?success=${encodeURIComponent(attachments.length === 1 ? "Imagen adjuntada" : "Imágenes adjuntadas")}`);
 }
 
 export async function deleteTicket(formData: FormData) {
@@ -240,5 +247,5 @@ export async function deleteTicket(formData: FormData) {
     redirect(`/tickets/${ticketId}?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect(`/dashboard?success=${encodeURIComponent("Ticket eliminado.")}`);
+  redirect(`/dashboard?success=${encodeURIComponent("Ticket eliminado")}`);
 }
