@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { XIcon } from "./icons";
 
 export default function Modal({
@@ -34,7 +35,8 @@ export default function Modal({
 
   if (!open) return null;
 
-  return (
+  // Portal al <body>: así se ve aunque se abra desde un contenedor oculto (ej. un menú "•••").
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4 pt-16 sm:pt-24">
       <div className="fixed inset-0 bg-slate-900/50" onClick={onClose} aria-hidden="true" />
       <div
@@ -61,6 +63,7 @@ export default function Modal({
         </div>
         <div className="p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

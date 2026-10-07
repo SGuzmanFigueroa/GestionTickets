@@ -59,3 +59,28 @@ export async function deleteProject(formData: FormData) {
 
   redirect(`/admin/projects?success=${encodeURIComponent("App eliminada.")}`);
 }
+
+/** Edita nombre, descripción y líder. El código no se edita: cambiaría el código de todos sus tickets. */
+export async function updateProject(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const description = String(formData.get("description") ?? "").trim();
+  const leaderId = String(formData.get("leader_id") ?? "").trim();
+
+  if (!name) {
+    redirect(`/admin/projects?error=${encodeURIComponent("El proyecto necesita un nombre.")}`);
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("projects")
+    .update({ name, description: description || null, leader_id: leaderId || null })
+    .eq("id", id);
+
+  if (error) {
+    redirect(`/admin/projects?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/admin/projects?success=${encodeURIComponent("Proyecto actualizado")}`);
+}

@@ -10,6 +10,7 @@ import { DropdownMenu } from "@/components/ui/DropdownMenu";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { SURFACE, TABLE_HEAD, TABLE_ROW, TABLE_TOOLBAR, TD, TH } from "@/components/ui/styles";
 import NewProjectModal from "./NewProjectModal";
+import EditProjectModal from "./EditProjectModal";
 import { deleteProject } from "./actions";
 
 const MENU_ITEM =
@@ -115,7 +116,12 @@ export default async function AdminProjectsPage() {
                             <span className="truncate text-slate-700 dark:text-slate-200">{leaderName}</span>
                           </span>
                         ) : (
-                          <span className="text-slate-400 dark:text-slate-500">Sin asignar</span>
+                          <EditProjectModal
+                            project={p}
+                            leaders={leaders ?? []}
+                            trigger="+ Asignar líder"
+                            triggerClassName="rounded text-xs font-medium text-nexa-blue hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nexa-blue/40 dark:text-blue-300"
+                          />
                         )}
                       </td>
                       <td className={TD}>
@@ -131,6 +137,7 @@ export default async function AdminProjectsPage() {
                       </td>
                       <td className={`${TD} text-right`}>
                         <DropdownMenu label={`Más acciones para ${p.name}`}>
+                          <EditProjectModal project={p} leaders={leaders ?? []} trigger="Editar proyecto / líder" triggerClassName={MENU_ITEM} />
                           <Link href={`/dashboard?project=${p.id}`} role="menuitem" className={MENU_ITEM}>
                             Ver tickets
                           </Link>
