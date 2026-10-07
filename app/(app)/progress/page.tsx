@@ -4,6 +4,8 @@ import { requireProfile } from "@/lib/auth";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import ProgressBar from "@/components/ui/ProgressBar";
+import MetricCard from "@/components/ui/MetricCard";
+import { SURFACE, TABLE_HEAD, TABLE_ROW, TD, TH } from "@/components/ui/styles";
 
 type Counts = { total: number; done: number; mvp: [number, number]; figma: [number, number] };
 
@@ -34,80 +36,81 @@ export default async function ProgressPage() {
   const totalItems = all.reduce((a, c) => a + c.total, 0);
 
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader
         title="Progreso de proyectos"
         description="Qué tanto se ha cumplido de lo esperado en el MVP y en Figma de cada app."
       />
 
-      {totalItems > 0 && (
-        <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <div className="mb-2 flex items-baseline justify-between gap-2">
-            <p className="text-sm font-semibold text-nexa-navy dark:text-white">Avance general</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {totalDone} de {totalItems} puntos completados
-            </p>
-          </div>
-          <ProgressBar done={totalDone} total={totalItems} />
-        </div>
-      )}
-
       {!projects?.length ? (
         <EmptyState title="No hay proyectos" description="Crea un proyecto en Admin → Proyectos para empezar a medir su avance." />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((p) => {
-            const c = counts.get(p.id);
-            return (
-              <Link
-                key={p.id}
-                href={`/progress/${p.id}`}
-                className="group flex flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-nexa-blue hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
-              >
-                <div className="mb-3 flex items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-nexa-light text-xs font-semibold text-nexa-blue dark:bg-blue-950/40 dark:text-blue-300">
-                    {p.code}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{p.name}</p>
-                    <p className="truncate text-xs text-slate-400 dark:text-slate-500">
-                      Líder: {(p.leader_id && leaderName.get(p.leader_id)) || "Sin asignar"}
-                    </p>
-                  </div>
-                  {c && c.total > 0 && c.done === c.total && (
-                    <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                      Completo
-                    </span>
-                  )}
-                </div>
+        <>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <MetricCard label="Proyectos" value={projects.length} />
+            <MetricCard label="Puntos totales" value={totalItems} />
+            <MetricCard label="Completados" value={totalDone} tone="primary" />
+            <MetricCard
+              label="Avance general"
+              value={totalItems ? `${Math.round((totalDone / totalItems) * 100)}%` : "—"}
+              tone={totalItems && totalDone === totalItems ? "primary" : "default"}
+            />
+          </div>
 
-                {c ? (
-                  <>
-                    <ProgressBar done={c.done} total={c.total} />
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-                      <span>
-                        <span className="font-medium text-slate-700 dark:text-slate-200">MVP</span> {c.mvp[0]}/{c.mvp[1]}
-                      </span>
-                      <span>
-                        <span className="font-medium text-slate-700 dark:text-slate-200">Figma</span> {c.figma[0]}/
-                        {c.figma[1]}
-                      </span>
-                      <span>{c.total - c.done} pendientes</span>
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-xs text-slate-400 dark:text-slate-500">
-                    Sin checklist todavía. Entra para agregar lo esperado del MVP y Figma.
-                  </p>
-                )}
-
-                <p className="mt-auto pt-3 text-xs font-medium text-nexa-blue opacity-80 group-hover:opacity-100">
-                  Ver checklist →
-                </p>
-              </Link>
-            );
-          })}
-        </div>
+          <div className={SURFACE}>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left text-sm">
+                <thead className={TABLE_HEAD}>
+                  <tr>
+                    <th scope="col" className={TH}>Proyecto</th>
+                    <th scope="col" className={`${TH} w-44`}>Líder</th>
+                    <th scope="col" className={`${TH} w-64`}>Avance</th>
+                    <th scope="col" className={`${TH} w-24`}>MVP</th>
+                    <th scope="col" className={`${TH} w-24`}>Figma</th>
+                    <th scope="col" className={`${TH} w-28`}>Pendientes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/70">
+                  {projects.map((p) => {
+                    const c = counts.get(p.id);
+                    return (
+                      <tr key={p.id} className={TABLE_ROW}>
+                        <td className={`${TD} max-w-0`}>
+                          <Link href={`/progress/${p.id}`} className="flex min-w-0 items-center gap-2 font-medium text-slate-800 hover:text-nexa-blue hover:underline dark:text-slate-100">
+                            <span className="shrink-0 rounded-[4px] bg-nexa-light px-1.5 py-0.5 font-mono text-[11px] font-semibold text-nexa-blue dark:bg-blue-950/40 dark:text-blue-300">
+                              {p.code}
+                            </span>
+                            <span className="truncate">{p.name}</span>
+                            {c && c.total > 0 && c.done === c.total && (
+                              <span className="shrink-0 rounded-[4px] bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                Completo
+                              </span>
+                            )}
+                          </Link>
+                        </td>
+                        <td className={`${TD} truncate text-slate-600 dark:text-slate-300`}>
+                          {(p.leader_id && leaderName.get(p.leader_id)) || <span className="text-slate-400">Sin asignar</span>}
+                        </td>
+                        <td className={TD}>
+                          {c ? (
+                            <ProgressBar done={c.done} total={c.total} size="sm" />
+                          ) : (
+                            <Link href={`/progress/${p.id}`} className="text-xs text-nexa-blue hover:underline dark:text-blue-300">
+                              Crear checklist
+                            </Link>
+                          )}
+                        </td>
+                        <td className={`${TD} tabular-nums text-slate-600 dark:text-slate-300`}>{c ? `${c.mvp[0]}/${c.mvp[1]}` : "—"}</td>
+                        <td className={`${TD} tabular-nums text-slate-600 dark:text-slate-300`}>{c ? `${c.figma[0]}/${c.figma[1]}` : "—"}</td>
+                        <td className={`${TD} tabular-nums text-slate-600 dark:text-slate-300`}>{c ? c.total - c.done : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { TestCaseStatusBadge, ProjectBadge } from "@/components/Badge";
+import { TestCaseStatusBadge } from "@/components/Badge";
+import Avatar from "@/components/ui/Avatar";
+import { FILTER_SELECT, SURFACE, TABLE_HEAD, TABLE_ROW, TABLE_TOOLBAR, TD, TH } from "@/components/ui/styles";
 import AutoSubmitForm from "@/components/AutoSubmitForm";
 import PageHeader from "@/components/ui/PageHeader";
 import MetricCard from "@/components/ui/MetricCard";
 import EmptyState from "@/components/ui/EmptyState";
 import SearchInput from "@/components/ui/SearchInput";
 import { Button } from "@/components/ui/Button";
-import { PlusIcon, ClipboardCheckIcon } from "@/components/ui/icons";
+import { PlusIcon } from "@/components/ui/icons";
 import { formatDate } from "@/lib/format";
 import {
   TEST_CASE_STATUS_LABELS,
@@ -49,8 +51,10 @@ export default async function TestCasesPage({
     failed: rows.filter((c) => c.status === "failed").length,
   };
 
+  const blocked = rows.filter((c) => c.status === "blocked").length;
+
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader
         title="Casos de prueba"
         description="Gestiona, ejecuta y consulta los casos de prueba de tus proyectos."
@@ -61,61 +65,41 @@ export default async function TestCasesPage({
         }
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MetricCard label="Total" value={stats.total} icon={<ClipboardCheckIcon />} />
+      <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/test-cases">
+        <label className="sr-only" htmlFor="tc-project">Proyecto</label>
+        <select id="tc-project" name="project" defaultValue={project ?? ""} className={FILTER_SELECT}>
+          <option value="">Proyecto: todos</option>
+          {projects?.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <label className="sr-only" htmlFor="tc-status">Resultado</label>
+        <select id="tc-status" name="status" defaultValue={status ?? ""} className={FILTER_SELECT}>
+          <option value="">Resultado: todos</option>
+          {TEST_CASE_STATUSES.map((s) => (
+            <option key={s} value={s}>{TEST_CASE_STATUS_LABELS[s]}</option>
+          ))}
+        </select>
+        {hasFilters && (
+          <Link
+            href="/test-cases"
+            className="inline-flex h-8 items-center rounded-md px-2.5 text-slate-500 transition-colors hover:bg-slate-200/60 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            Limpiar filtros
+          </Link>
+        )}
+      </AutoSubmitForm>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <MetricCard label="Total" value={stats.total} />
         <MetricCard label="Sin ejecutar" value={stats.notRun} />
         <MetricCard label="Aprobados" value={stats.passed} tone="primary" />
-        <MetricCard label="Fallidos" value={stats.failed} tone="danger" />
-      </div>
-
-      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <AutoSubmitForm className="flex flex-wrap gap-2 text-sm" action="/test-cases">
-          <select
-            name="project"
-            defaultValue={project ?? ""}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          >
-            <option value="">Todas las apps</option>
-            {projects?.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            name="status"
-            defaultValue={status ?? ""}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          >
-            <option value="">Todos los resultados</option>
-            {TEST_CASE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {TEST_CASE_STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
-
-          {hasFilters && (
-            <Link
-              href="/test-cases"
-              className="rounded-md px-3 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-            >
-              Limpiar filtros
-            </Link>
-          )}
-        </AutoSubmitForm>
-
-        <SearchInput
-          placeholder="Buscar por título..."
-          scopeSelector="#test-cases-results"
-          noResultsSelector="#test-cases-no-local-matches"
-          className="sm:w-64"
-        />
+        <MetricCard label="Fallidos" value={stats.failed} tone={stats.failed ? "danger" : "default"} />
+        <MetricCard label="Bloqueados" value={blocked} tone={blocked ? "warning" : "default"} />
       </div>
 
       {error && (
-        <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
           Error cargando casos de prueba: {error.message}
         </p>
       )}
@@ -137,77 +121,84 @@ export default async function TestCasesPage({
           }
         />
       ) : (
-        <div id="test-cases-results">
-          <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:block">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300">
+        <div className={SURFACE}>
+          <div className={TABLE_TOOLBAR}>
+            <SearchInput
+              placeholder="Buscar por título o proyecto…"
+              scopeSelector="#test-cases-results"
+              noResultsSelector="#test-cases-no-local-matches"
+              className="w-full sm:w-80"
+            />
+            <p className="ml-auto text-xs text-slate-500 dark:text-slate-400">{rows.length} casos</p>
+          </div>
+
+          <div id="test-cases-results">
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead className={TABLE_HEAD}>
                   <tr>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Caso</th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Proyecto</th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Resultado</th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Última ejecución</th>
+                    <th scope="col" className={TH}>Caso</th>
+                    <th scope="col" className={`${TH} w-44`}>Proyecto</th>
+                    <th scope="col" className={`${TH} w-32`}>Resultado</th>
+                    <th scope="col" className={`${TH} w-64`}>Última ejecución</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/70">
                   {rows.map((c) => (
-                    <tr
-                      key={c.id}
-                      data-search-row
-                      data-search-text={c.title}
-                      className="h-14 transition-colors hover:bg-nexa-light/30 dark:hover:bg-slate-700/40"
-                    >
-                      <td className="max-w-[320px] px-4 py-2.5">
+                    <tr key={c.id} data-search-row data-search-text={`${c.title} ${c.project?.name ?? ""}`} className={TABLE_ROW}>
+                      <td className={`${TD} max-w-0`}>
                         <Link
                           href={`/test-cases/${c.id}`}
                           className="block truncate font-medium text-slate-800 hover:text-nexa-blue hover:underline dark:text-slate-100"
+                          title={c.title}
                         >
                           {c.title}
                         </Link>
                       </td>
-                      <td className="px-4 py-2.5">
-                        <ProjectBadge>{c.project?.name}</ProjectBadge>
-                      </td>
-                      <td className="px-4 py-2.5">
+                      <td className={`${TD} truncate text-slate-600 dark:text-slate-300`}>{c.project?.name}</td>
+                      <td className={TD}>
                         <TestCaseStatusBadge status={c.status} label={TEST_CASE_STATUS_LABELS[c.status]} />
                       </td>
-                      <td className="px-4 py-2.5 text-slate-500 dark:text-slate-400">
-                        {c.last_run_at
-                          ? `${c.last_run_by_profile?.full_name ?? c.last_run_by_profile?.email ?? "usuario eliminado"} · ${formatDate(c.last_run_at)}`
-                          : "—"}
+                      <td className={`${TD} text-xs text-slate-500 dark:text-slate-400`}>
+                        {c.last_run_at ? (
+                          <span className="flex items-center gap-1.5">
+                            <Avatar name={c.last_run_by_profile?.full_name ?? c.last_run_by_profile?.email ?? "?"} size="sm" />
+                            <span className="truncate">
+                              {c.last_run_by_profile?.full_name ?? c.last_run_by_profile?.email ?? "Usuario eliminado"} · {formatDate(c.last_run_at)}
+                            </span>
+                          </span>
+                        ) : (
+                          "Sin ejecutar"
+                        )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <p id="test-cases-no-local-matches" className="hidden px-4 py-8 text-center text-sm text-slate-400">
-              Ningún caso visible coincide con tu búsqueda.
-            </p>
-          </div>
 
-          <div className="space-y-3 sm:hidden">
-            {rows.map((c) => (
-              <Link
-                key={c.id}
-                href={`/test-cases/${c.id}`}
-                data-search-row
-                data-search-text={c.title}
-                className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-              >
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <ProjectBadge>{c.project?.name}</ProjectBadge>
-                  <TestCaseStatusBadge status={c.status} label={TEST_CASE_STATUS_LABELS[c.status]} />
-                </div>
-                <p className="mb-1 text-sm font-medium text-slate-800 dark:text-slate-100">{c.title}</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">
-                  {c.last_run_at
-                    ? `${c.last_run_by_profile?.full_name ?? c.last_run_by_profile?.email ?? "usuario eliminado"} · ${formatDate(c.last_run_at)}`
-                    : "Todavía no se ha ejecutado"}
-                </p>
-              </Link>
-            ))}
+            <ul className="divide-y divide-slate-100 md:hidden dark:divide-slate-700">
+              {rows.map((c) => (
+                <li key={c.id} data-search-row data-search-text={`${c.title} ${c.project?.name ?? ""}`}>
+                  <Link href={`/test-cases/${c.id}`} className="block px-3 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/40">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="truncate text-xs text-slate-500 dark:text-slate-400">{c.project?.name}</span>
+                      <TestCaseStatusBadge status={c.status} label={TEST_CASE_STATUS_LABELS[c.status]} />
+                    </div>
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{c.title}</p>
+                    <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+                      {c.last_run_at
+                        ? `${c.last_run_by_profile?.full_name ?? c.last_run_by_profile?.email ?? "Usuario eliminado"} · ${formatDate(c.last_run_at)}`
+                        : "Todavía no se ha ejecutado"}
+                    </p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
+          <p id="test-cases-no-local-matches" className="hidden px-4 py-8 text-center text-sm text-slate-400">
+            Ningún caso coincide con tu búsqueda.
+          </p>
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ import PageHeader from "@/components/ui/PageHeader";
 import SearchInput from "@/components/ui/SearchInput";
 import Avatar from "@/components/ui/Avatar";
 import { DropdownMenu } from "@/components/ui/DropdownMenu";
+import { FILTER_SELECT, SURFACE, TABLE_HEAD, TABLE_ROW, TABLE_TOOLBAR, TD, TH } from "@/components/ui/styles";
 import { ROLE_LABELS, USER_ROLES, type Profile, type UserRole } from "@/lib/types";
 import { deleteUser, updateUserDiscordId, updateUserRole } from "./actions";
 
@@ -20,6 +21,14 @@ const ROLE_DOT: Record<UserRole, string> = {
   backend: "bg-emerald-500",
   frontend: "bg-purple-500",
   marketing: "bg-rose-500",
+};
+
+// Estado del integrante en Equipo Nexa (team_members.status).
+const MEMBER_STATUS_LABEL: Record<string, string> = { activo: "Activo", pausado: "Pausado", retirado: "Retirado" };
+const MEMBER_STATUS_STYLE: Record<string, string> = {
+  activo: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300",
+  pausado: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300",
+  retirado: "bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
 };
 
 export default async function AdminUsersPage({
@@ -73,112 +82,117 @@ export default async function AdminUsersPage({
   const returnQuery = filterParams.toString();
   const hasFilters = Boolean(role || project);
 
+
+  // Carga y estado de cada persona (solo lectura; no cambia permisos).
+  const [{ data: openTickets }, { data: memberStatus }] = await Promise.all([
+    supabase.from("tickets").select("assignee_id").not("assignee_id", "is", null).not("status", "in", "(resolved,closed)"),
+    supabase.from("team_members").select("profile_id, status").not("profile_id", "is", null),
+  ]);
+  const pendingBy = new Map<string, number>();
+  for (const t of openTickets ?? []) pendingBy.set(t.assignee_id!, (pendingBy.get(t.assignee_id!) ?? 0) + 1);
+  const statusBy = new Map((memberStatus ?? []).map((m) => [m.profile_id as string, String(m.status)]));
+
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader
-        title="Equipo"
-        description="Administra usuarios, proyectos asignados y permisos."
+        title="Usuarios y roles"
+        description={
+          "Las cuentas nuevas entran con rol QA; asígnales su rol aquí." +
+          (!isAdmin ? " Como líder, no puedes tocar cuentas admin ni de otros líderes, ni volver a nadie admin o líder." : "")
+        }
       />
 
-      <p className="-mt-4 mb-6 text-sm text-slate-500 dark:text-slate-400">
-        Las cuentas nuevas entran con rol QA. Asígnales el rol correcto aquí (Admin, QA, Developer,
-        Backend, Frontend, Marketing).
-        {!isAdmin &&
-          " Como líder, no puedes tocar cuentas admin ni de otros líderes, ni volver a nadie admin o líder."}
-      </p>
-
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/admin/users">
-          <select
-            name="role"
-            defaultValue={role ?? ""}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+      <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/admin/users">
+        <label className="sr-only" htmlFor="u-role">Rol</label>
+        <select id="u-role" name="role" defaultValue={role ?? ""} className={FILTER_SELECT}>
+          <option value="">Rol: todos</option>
+          {USER_ROLES.map((r) => (
+            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+          ))}
+        </select>
+        <label className="sr-only" htmlFor="u-project">Proyecto</label>
+        <select id="u-project" name="project" defaultValue={project ?? ""} className={FILTER_SELECT}>
+          <option value="">Proyecto: todos</option>
+          {projects?.map((p) => (
+            <option key={p.id} value={p.id}>{p.code} · {p.name}</option>
+          ))}
+          <option value="none">Sin proyecto</option>
+        </select>
+        {hasFilters && (
+          <Link
+            href="/admin/users"
+            className="inline-flex h-8 items-center rounded-md px-2.5 text-slate-500 transition-colors hover:bg-slate-200/60 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
           >
-            <option value="">Todos los roles</option>
-            {USER_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS[r]}
-              </option>
-            ))}
-          </select>
-          <select
-            name="project"
-            defaultValue={project ?? ""}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          >
-            <option value="">Todos los proyectos</option>
-            {projects?.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.code} · {p.name}
-              </option>
-            ))}
-            <option value="none">Sin proyecto</option>
-          </select>
-          {hasFilters && (
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              {rows.length} {rows.length === 1 ? "usuario" : "usuarios"}
-            </span>
-          )}
-          {hasFilters && (
-            <Link
-              href="/admin/users"
-              className="rounded-md px-3 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-            >
-              Limpiar
-            </Link>
-          )}
-        </AutoSubmitForm>
+            Limpiar filtros
+          </Link>
+        )}
+      </AutoSubmitForm>
 
-        <SearchInput
-          placeholder="Buscar usuario..."
-          scopeSelector="#users-table-body"
-          noResultsSelector="#users-no-local-matches"
-          className="sm:w-64"
-        />
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className={SURFACE}>
+        <div className={TABLE_TOOLBAR}>
+          <SearchInput
+            placeholder="Buscar por nombre o correo…"
+            scopeSelector="#users-table-body"
+            noResultsSelector="#users-no-local-matches"
+            className="w-full sm:w-80"
+          />
+          <p className="ml-auto text-xs text-slate-500 dark:text-slate-400">
+            {rows.length} {rows.length === 1 ? "usuario" : "usuarios"}
+          </p>
+        </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className={TABLE_HEAD}>
               <tr>
-                <th scope="col" className="px-4 py-2.5 font-medium">Usuario</th>
-                <th scope="col" className="px-4 py-2.5 font-medium">Proyecto</th>
-                <th scope="col" className="px-4 py-2.5 font-medium">Rol</th>
-                <th scope="col" className="px-4 py-2.5 font-medium">Discord ID</th>
-                <th scope="col" className="px-4 py-2.5 font-medium"><span className="sr-only">Acciones</span></th>
+                <th scope="col" className={TH}>Usuario</th>
+                <th scope="col" className={`${TH} w-44`}>Rol</th>
+                <th scope="col" className={`${TH} w-40`}>Proyectos</th>
+                <th scope="col" className={`${TH} w-28`}>Pendientes</th>
+                <th scope="col" className={`${TH} w-28`}>Estado</th>
+                <th scope="col" className={`${TH} w-44`}>Discord ID</th>
+                <th scope="col" className={`${TH} w-12`}><span className="sr-only">Acciones</span></th>
               </tr>
             </thead>
-            <tbody id="users-table-body" className="divide-y divide-slate-100 dark:divide-slate-700">
+            <tbody id="users-table-body" className="divide-y divide-slate-100 dark:divide-slate-700/70">
               {rows.map((u) => {
                 const displayName = u.full_name ?? u.email;
+                const pending = pendingBy.get(u.id) ?? 0;
+                const memberState = statusBy.get(u.id);
                 return (
-                  <tr
-                    key={u.id}
-                    data-search-row
-                    data-search-text={`${u.full_name ?? ""} ${u.email}`}
-                    className="h-14 transition-colors hover:bg-nexa-light/20 dark:hover:bg-slate-700/40"
-                  >
-                    <td className="px-4 py-2.5">
+                  <tr key={u.id} data-search-row data-search-text={`${u.full_name ?? ""} ${u.email} ${ROLE_LABELS[u.role]}`} className={TABLE_ROW}>
+                    <td className={`${TD} max-w-0`}>
                       <div className="flex items-center gap-2.5">
                         <Avatar name={displayName} size="sm" />
                         <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ROLE_DOT[u.role]}`} />
-                            <span className="truncate text-slate-800 dark:text-slate-100">{displayName}</span>
-                          </div>
+                          <p className="truncate font-medium text-slate-800 dark:text-slate-100">{displayName}</p>
                           <p className="truncate text-xs text-slate-400 dark:text-slate-500">{u.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className={TD}>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${ROLE_DOT[u.role]}`} aria-hidden="true" />
+                        {!isAdmin && (u.role === "admin" || u.role === "lider") ? (
+                          <span className="text-sm text-slate-600 dark:text-slate-300" title="Solo un admin la edita">
+                            {ROLE_LABELS[u.role]}
+                          </span>
+                        ) : (
+                          <RoleSelect
+                            action={updateUserRole}
+                            userId={u.id}
+                            currentRole={u.role}
+                            assignableRoles={assignableRoles}
+                            disabled={u.id === admin.id}
+                            returnQuery={returnQuery}
+                          />
+                        )}
+                      </div>
+                    </td>
+                    <td className={TD}>
                       {(projectsByProfileId.get(u.id) ?? []).length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {projectsByProfileId.get(u.id)!.map(({ id, code }) => (
-                            <span
-                              key={id}
-                              className="rounded bg-nexa-light px-1.5 py-0.5 text-xs font-medium text-nexa-blue dark:bg-blue-950/40 dark:text-blue-300"
-                            >
+                            <span key={id} className="rounded-[4px] bg-nexa-light px-1.5 py-0.5 text-[11px] font-semibold text-nexa-blue dark:bg-blue-950/40 dark:text-blue-300">
                               {code}
                             </span>
                           ))}
@@ -187,29 +201,32 @@ export default async function AdminUsersPage({
                         <span className="text-xs text-slate-400 dark:text-slate-500">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5">
-                      {!isAdmin && (u.role === "admin" || u.role === "lider") ? (
-                        <span className="text-xs text-slate-400 dark:text-slate-500">Solo un admin la edita</span>
+                    <td className={TD}>
+                      {pending > 0 ? (
+                        <Link
+                          href={`/dashboard?assignee=${u.id}`}
+                          className="tabular-nums text-slate-700 hover:text-nexa-blue hover:underline dark:text-slate-200"
+                          title={`Ver los tickets pendientes de ${displayName}`}
+                        >
+                          {pending} {pending === 1 ? "ticket" : "tickets"}
+                        </Link>
                       ) : (
-                        <RoleSelect
-                          action={updateUserRole}
-                          userId={u.id}
-                          currentRole={u.role}
-                          assignableRoles={assignableRoles}
-                          disabled={u.id === admin.id}
-                          returnQuery={returnQuery}
-                        />
+                        <span className="text-xs text-slate-400 dark:text-slate-500">Sin carga</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5">
-                      <DiscordIdInput
-                        action={updateUserDiscordId}
-                        userId={u.id}
-                        currentDiscordId={u.discord_id}
-                        returnQuery={returnQuery}
-                      />
+                    <td className={TD}>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-[4px] px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+                          MEMBER_STATUS_STYLE[memberState ?? ""] ?? "bg-slate-100 text-slate-500 dark:bg-slate-700/60 dark:text-slate-400"
+                        }`}
+                      >
+                        {MEMBER_STATUS_LABEL[memberState ?? ""] ?? "Sin ficha"}
+                      </span>
                     </td>
-                    <td className="px-4 py-2.5 text-right">
+                    <td className={TD}>
+                      <DiscordIdInput action={updateUserDiscordId} userId={u.id} currentDiscordId={u.discord_id} returnQuery={returnQuery} />
+                    </td>
+                    <td className={`${TD} text-right`}>
                       {isAdmin && u.id !== admin.id && (
                         <DropdownMenu label={`Más acciones para ${displayName}`}>
                           <form action={deleteUser}>
@@ -234,7 +251,7 @@ export default async function AdminUsersPage({
           </table>
         </div>
         <p id="users-no-local-matches" className="hidden px-4 py-8 text-center text-sm text-slate-400">
-          Ningún usuario visible coincide con tu búsqueda.
+          Ningún usuario coincide con tu búsqueda.
         </p>
       </div>
     </div>

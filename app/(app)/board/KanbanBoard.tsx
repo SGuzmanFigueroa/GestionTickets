@@ -129,7 +129,7 @@ export default function KanbanBoard({ initialCards }: { initialCards: BoardCard[
                 if (dragging && target) move(dragging, target);
                 setDragging(null);
               }}
-              className={`flex w-[280px] shrink-0 snap-start flex-col rounded-xl border p-2 transition-colors ${
+              className={`flex min-w-[260px] flex-1 snap-start flex-col rounded-lg border p-1.5 transition-colors ${
                 isOver
                   ? "border-nexa-blue bg-nexa-light/70 dark:bg-blue-950/40"
                   : canDrop
@@ -209,12 +209,17 @@ function BoardCardItem({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
-      className={`group rounded-lg border bg-white p-3 shadow-sm transition dark:bg-slate-800 ${
+      className={`group relative overflow-hidden rounded-md border bg-white px-2.5 py-2 shadow-[0_1px_1px_rgba(10,31,68,0.06)] transition dark:bg-slate-800 ${
         card.mine ? "border-nexa-blue/40 dark:border-blue-700/60" : "border-slate-200 dark:border-slate-700"
-      } ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${isDragging ? "opacity-40" : "hover:shadow-md"}`}
+      } ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${isDragging ? "opacity-40" : "hover:border-slate-300 hover:shadow-sm dark:hover:border-slate-600"}`}
     >
-      <div className="mb-1.5 flex items-center gap-1.5">
-        <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500">{card.code}</span>
+      {/* Franja roja: crítico o urgente, visible de un vistazo */}
+      {(card.severity === "critical" || card.priority === "urgent") && (
+        <span className="absolute inset-y-0 left-0 w-[3px] bg-red-500" aria-hidden="true" />
+      )}
+      <div className="mb-1 flex items-center gap-1.5">
+        <span className="font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">{card.code}</span>
+        <span className="min-w-0 truncate text-[11px] text-slate-400 dark:text-slate-500">· {card.projectName}</span>
         {card.status === "reopened" && (
           <span className="rounded bg-red-50 px-1.5 text-[10px] font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300">
             {STATUS_LABELS.reopened}
@@ -235,12 +240,14 @@ function BoardCardItem({
         {card.title}
       </Link>
 
-      <div className="mt-2 flex flex-wrap gap-1">
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <PriorityBadge priority={card.priority} label={PRIORITY_LABELS[card.priority]} />
-        {card.severity === "critical" && <SeverityBadge severity={card.severity} label={SEVERITY_LABELS[card.severity]} />}
+        {(card.severity === "critical" || card.severity === "high") && (
+          <SeverityBadge severity={card.severity} label={SEVERITY_LABELS[card.severity]} />
+        )}
       </div>
 
-      <div className="mt-2.5 flex items-center gap-2 border-t border-slate-100 pt-2 dark:border-slate-700">
+      <div className="mt-2 flex items-center gap-2">
         {card.assigneeName ? (
           <>
             <Avatar name={card.assigneeName} size="sm" />

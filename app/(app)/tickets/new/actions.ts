@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
+import { sendTicketAssignedEmail } from "@/lib/email";
 
 export async function createTicket(formData: FormData) {
   const profile = await requireProfile();
@@ -17,6 +18,8 @@ export async function createTicket(formData: FormData) {
   const priority = String(formData.get("priority") ?? "medium");
   const targetRole = String(formData.get("target_role") ?? "");
   const testCaseId = String(formData.get("test_case_id") ?? "");
+  // Asignación inicial: quien reporta puede asignar su ticket mientras no tenga responsable.
+  const assigneeId = String(formData.get("assignee_id") ?? "") || null;
   const attachments = String(formData.get("attachments") ?? "")
     .split(",")
     .map((url) => url.trim())
@@ -39,8 +42,9 @@ export async function createTicket(formData: FormData) {
       target_role: targetRole || null,
       test_case_id: testCaseId || null,
       reporter_id: profile.id,
+      assignee_id: assigneeId,
     })
-    .select("id")
+    .select("id, ticket_number, project:projects(code)")
     .single();
 
   if (error || !data) {
@@ -57,5 +61,25 @@ export async function createTicket(formData: FormData) {
     );
   }
 
-  redirect(`/tickets/${data.id}?success=${encodeURIComponent("Ticket creado con éxito.")}`);
+  if (assigneeId) {
+    await supabase.from("ticket_history").insert({
+      ticket_id: data.id,
+      actor_id: profile.id,
+      field: "assignee",
+      old_value: null,
+      new_value: assigneeId,
+    });
+    const { data: assignee } = await supabase.from("profiles").select("email").eq("id", assigneeId).single();
+    if (assignee?.email) {
+      await sendTicketAssignedEmail({
+        to: assignee.email,
+        ticketCode: `${(data.project as unknown as { code: string } | null)?.code}-${data.ticket_number}`,
+        ticketTitle: title,
+        ticketId: data.id,
+        assignedByName: profile.full_name ?? profile.email,
+      });
+    }
+  }
+
+  redirect(`/tickets/${data.id}?success=${encodeURIComponent("Ticket creado")}`);
 }
