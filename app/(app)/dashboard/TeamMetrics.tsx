@@ -69,8 +69,8 @@ export default function TeamMetrics({
   const idleCount = people.filter((p) => p.pending === 0).length;
 
   return (
+    // Sin contenedor propio: las 4 tarjetas se integran a la fila de métricas del dashboard.
     <>
-      <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricCard
           label="Sin asignar"
           value={unassigned.length}
@@ -89,7 +89,6 @@ export default function TeamMetrics({
           onClick={() => setPanel("resolution")}
         />
         <MetricCard label="Personas sin carga" value={idleCount} tone="primary" onClick={() => setPanel("idle")} />
-      </div>
 
       <Modal
         open={panel === "unassigned"}

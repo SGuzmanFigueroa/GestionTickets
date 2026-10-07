@@ -1,25 +1,21 @@
-const TONE_STYLES = {
-  default: "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800",
-  primary: "border-blue-100 bg-nexa-light dark:border-blue-900/40 dark:bg-blue-950/30",
-  warning: "border-amber-100 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/30",
-  danger: "border-red-100 bg-red-50 dark:border-red-900/40 dark:bg-red-950/30",
-} as const;
+// Estadística compacta. El tono solo pinta el número y un punto (no toda la
+// tarjeta), para que una fila de métricas no compita con la lista principal.
 
 const VALUE_TONE = {
   default: "text-nexa-navy dark:text-white",
-  primary: "text-nexa-blue",
+  primary: "text-nexa-blue dark:text-blue-300",
   warning: "text-amber-700 dark:text-amber-400",
   danger: "text-red-700 dark:text-red-400",
 } as const;
 
-const LABEL_TONE = {
-  default: "text-slate-400",
-  primary: "text-nexa-blue/70",
-  warning: "text-amber-600/80",
-  danger: "text-red-600/80",
+const DOT_TONE = {
+  default: "bg-slate-300 dark:bg-slate-600",
+  primary: "bg-nexa-blue",
+  warning: "bg-amber-500",
+  danger: "bg-red-500",
 } as const;
 
-export type MetricTone = keyof typeof TONE_STYLES;
+export type MetricTone = keyof typeof VALUE_TONE;
 
 export default function MetricCard({
   label,
@@ -37,28 +33,32 @@ export default function MetricCard({
 }) {
   const content = (
     <>
-      <div className="flex items-center justify-between">
-        <p className={`text-xs font-medium uppercase tracking-wide ${LABEL_TONE[tone]}`}>{label}</p>
-        {icon && <span className={VALUE_TONE[tone]}>{icon}</span>}
-      </div>
-      <p className={`mt-1 text-2xl font-semibold ${VALUE_TONE[tone]}`}>{value}</p>
+      <span className="flex items-center gap-1.5">
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT_TONE[tone]}`} aria-hidden="true" />
+        <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</span>
+        {icon && <span className="ml-auto text-slate-400" aria-hidden="true">{icon}</span>}
+      </span>
+      <span className={`mt-0.5 block text-xl font-semibold tabular-nums ${VALUE_TONE[tone]}`}>{value}</span>
     </>
   );
+
+  const base = "block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-700 dark:bg-slate-800";
 
   if (onClick) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className={`group w-full rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-nexa-blue ${TONE_STYLES[tone]}`}
+        aria-label={`${label}: ${value}. Ver detalle`}
+        className={`${base} group relative transition-colors hover:border-nexa-blue/60 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-nexa-blue/40 dark:hover:bg-slate-700/50`}
       >
         {content}
-        <p className="mt-1 text-xs text-slate-400 transition-colors group-hover:text-nexa-blue dark:text-slate-500">
-          Ver detalle →
-        </p>
+        <span className="absolute bottom-2 right-2.5 text-xs text-slate-300 transition-colors group-hover:text-nexa-blue dark:text-slate-600" aria-hidden="true">
+          →
+        </span>
       </button>
     );
   }
 
-  return <div className={`rounded-lg border p-4 ${TONE_STYLES[tone]}`}>{content}</div>;
+  return <div className={base}>{content}</div>;
 }

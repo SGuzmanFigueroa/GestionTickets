@@ -1,22 +1,20 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import { StatusBadge, SeverityBadge, PriorityBadge, ProjectBadge } from "@/components/Badge";
 import AutoSubmitForm from "@/components/AutoSubmitForm";
-import PageHeader from "@/components/ui/PageHeader";
 import MetricCard from "@/components/ui/MetricCard";
 import Leaderboard, { type LeaderboardEntry } from "@/components/ui/Leaderboard";
-import EmptyState from "@/components/ui/EmptyState";
-import SearchInput from "@/components/ui/SearchInput";
 import Avatar from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { daysSince } from "@/lib/format";
+import { FILTER_SELECT } from "@/components/ui/styles";
+import TicketTable, { type TicketRow } from "@/components/tickets/TicketTable";
+import { daysSince, formatDateTime, timeAgo } from "@/lib/format";
 import { ROLE_LABELS, type UserRole } from "@/lib/types";
-import { PlusIcon, TicketIcon } from "@/components/ui/icons";
+import { PlusIcon } from "@/components/ui/icons";
 import {
   PRIORITY_LABELS,
-  SEVERITY_LABELS,
   STATUS_LABELS,
+  TICKET_PRIORITIES,
   TICKET_STATUSES,
   type TicketSeverity,
   type TicketStatus,
@@ -30,9 +28,17 @@ const TEAMS: UserRole[] = ["qa", "backend", "frontend", "developer", "marketing"
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string; status?: string; mine?: string; team?: string }>;
+  searchParams: Promise<{
+    project?: string;
+    status?: string;
+    priority?: string;
+    assignee?: string;
+    mine?: string;
+    team?: string;
+    q?: string;
+  }>;
 }) {
-  const { project, status, mine, team: rawTeam } = await searchParams;
+  const { project, status, priority, assignee, mine, team: rawTeam, q } = await searchParams;
   const teamFilter = TEAMS.includes(rawTeam as UserRole) ? (rawTeam as UserRole) : null;
   const profile = await requireProfile();
   const supabase = await createClient();
@@ -96,9 +102,9 @@ export default async function DashboardPage({
 
   const stats = {
     total: teamTickets.length,
-    open: teamTickets.filter((t) => t.status === "open").length,
+    open: teamTickets.filter((t) => t.status === "open" || t.status === "reopened").length,
     inProgress: teamTickets.filter((t) => t.status === "in_progress").length,
-    critical: teamTickets.filter((t) => t.severity === "critical").length,
+    critical: teamTickets.filter((t) => t.severity === "critical" && t.status !== "resolved" && t.status !== "closed").length,
   };
 
   // ---- Métricas de equipo ----
@@ -232,354 +238,210 @@ export default async function DashboardPage({
     (p) => p.role === "qa" && !reported.has(p.id) && !inactive.has(p.id) && personInTeam(p.id),
   );
 
-  // Links del filtro de equipo: conservan los filtros de la lista de tickets.
-  const teamHref = (value: UserRole | null) => {
-    const params = new URLSearchParams();
-    if (project) params.set("project", project);
-    if (status) params.set("status", status);
-    if (mine) params.set("mine", mine);
-    if (value) params.set("team", value);
-    const qs = params.toString();
-    return `/dashboard${qs ? `?${qs}` : ""}`;
-  };
-  const activeCount = (role: UserRole) =>
-    (people ?? []).filter((p) => p.role === role && !inactive.has(p.id)).length;
 
+  // ---- Lista de tickets (filtros del servidor; búsqueda y orden en el cliente) ----
   let query = supabase
     .from("tickets")
     .select(
       "*, project:projects(id, name, slug, code), reporter:profiles!tickets_reporter_id_fkey(id, full_name, email), assignee:profiles!tickets_assignee_id_fkey(id, full_name, email)",
     )
-    .order("created_at", { ascending: false });
+    .order("updated_at", { ascending: false });
 
   if (project) query = query.eq("project_id", project);
   if (status) query = query.eq("status", status);
+  if (priority) query = query.eq("priority", priority);
+  if (assignee === "none") query = query.is("assignee_id", null);
+  else if (assignee) query = query.eq("assignee_id", assignee);
   if (mine === "1") query = query.eq("assignee_id", profile.id);
 
   const { data: tickets, error } = await query;
-  const hasFilters = Boolean(project || status || mine);
-  const rows = ((tickets as TicketWithRelations[] | null) ?? []).filter(ticketInTeam);
+  const hasFilters = Boolean(project || status || priority || assignee || mine || teamFilter);
+  const rows: TicketRow[] = ((tickets as TicketWithRelations[] | null) ?? []).filter(ticketInTeam).map((t) => ({
+    id: t.id,
+    code: `${t.project?.code}-${t.ticket_number}`,
+    number: t.ticket_number,
+    title: t.title,
+    status: t.status,
+    priority: t.priority,
+    severity: t.severity,
+    projectName: t.project?.name ?? "",
+    assigneeName: t.assignee?.full_name ?? t.assignee?.email ?? null,
+    reporterName: t.reporter?.full_name ?? t.reporter?.email ?? null,
+    updatedAt: t.updated_at,
+    updatedLabel: timeAgo(t.updated_at),
+    updatedTitle: formatDateTime(t.updated_at),
+  }));
+
+  const assignablePeople = (people ?? [])
+    .filter((p) => !inactive.has(p.id))
+    .map((p) => ({ id: p.id, name: p.full_name ?? p.email }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div>
-      <PageHeader
-        title="Tickets"
-        description="Gestiona y da seguimiento a los bugs reportados en todas las apps."
-        actions={
-          <Button href="/tickets/new" variant="primary">
-            <PlusIcon /> Nuevo ticket
-          </Button>
-        }
-      />
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-nexa-navy dark:text-white">Tickets</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Encuentra, filtra y da seguimiento a los bugs de todas las apps.</p>
+        </div>
+        <Button href="/tickets/new" variant="primary">
+          <PlusIcon /> Crear ticket
+        </Button>
+      </div>
 
-      <nav aria-label="Filtrar por equipo" className="mb-6 flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
-          Equipo
-        </span>
-        {[null, ...TEAMS].map((value) => {
-          const active = teamFilter === value;
-          return (
-            <Link
-              key={value ?? "all"}
-              href={teamHref(value)}
-              aria-current={active ? "page" : undefined}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                active
-                  ? "border-nexa-blue bg-nexa-blue text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-nexa-blue hover:text-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
-              }`}
-            >
-              {value ? ROLE_LABELS[value] : "Todos"}
-              {value && <span className={active ? "ml-1 text-white/80" : "ml-1 text-slate-400"}>{activeCount(value)}</span>}
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Filtros (se aplican al instante) */}
+      <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/dashboard">
+        <label className="sr-only" htmlFor="f-status">Estado</label>
+        <select id="f-status" name="status" defaultValue={status ?? ""} className={FILTER_SELECT}>
+          <option value="">Estado: todos</option>
+          {TICKET_STATUSES.map((s) => (
+            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+          ))}
+        </select>
+        <label className="sr-only" htmlFor="f-priority">Prioridad</label>
+        <select id="f-priority" name="priority" defaultValue={priority ?? ""} className={FILTER_SELECT}>
+          <option value="">Prioridad: todas</option>
+          {TICKET_PRIORITIES.map((p) => (
+            <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
+          ))}
+        </select>
+        <label className="sr-only" htmlFor="f-project">Proyecto</label>
+        <select id="f-project" name="project" defaultValue={project ?? ""} className={FILTER_SELECT}>
+          <option value="">Proyecto: todos</option>
+          {projects?.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <label className="sr-only" htmlFor="f-assignee">Asignado a</label>
+        <select id="f-assignee" name="assignee" defaultValue={assignee ?? ""} className={`${FILTER_SELECT} max-w-52`}>
+          <option value="">Asignado: todos</option>
+          <option value="none">Sin asignar</option>
+          {assignablePeople.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        <label className="sr-only" htmlFor="f-team">Equipo</label>
+        <select id="f-team" name="team" defaultValue={teamFilter ?? ""} className={FILTER_SELECT}>
+          <option value="">Equipo: todos</option>
+          {TEAMS.map((r) => (
+            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+          ))}
+        </select>
+        <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 text-slate-700 hover:border-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+          <input type="checkbox" name="mine" value="1" defaultChecked={mine === "1"} className="accent-nexa-blue" />
+          Asignados a mí
+        </label>
+        {hasFilters && (
+          <Link
+            href="/dashboard"
+            className="inline-flex h-8 items-center rounded-md px-2.5 text-slate-500 transition-colors hover:bg-slate-200/60 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            Limpiar filtros
+          </Link>
+        )}
+      </AutoSubmitForm>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MetricCard label="Total" value={stats.total} icon={<TicketIcon />} />
-        <MetricCard label="Abiertos" value={stats.open} tone="primary" />
+      {/* Resumen compacto: no compite con la lista */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+        <MetricCard label="Total" value={stats.total} />
+        <MetricCard label="Por hacer" value={stats.open} tone="primary" />
         <MetricCard label="En progreso" value={stats.inProgress} tone="warning" />
-        <MetricCard label="Críticos" value={stats.critical} tone="danger" />
-      </div>
-
-      <div className="mb-6 grid gap-3 md:grid-cols-3">
-        <Leaderboard
-          title="Quién reporta más"
-          subtitle="Tickets creados"
-          entries={top(reported)}
-          unit="tickets"
-        />
-        <Leaderboard
-          title="Quién resuelve más"
-          subtitle="Tickets pasados a Certificado o Cerrado"
-          entries={top(resolved)}
-          unit="resueltos"
-        />
-        <Leaderboard
-          title="Más carga pendiente"
-          subtitle="Tickets sin certificar y tareas abiertas del bot"
-          entries={top(pending)}
-          unit="pendientes"
-        />
-      </div>
-
-      <TeamMetrics
-        unassigned={unassigned.map(toMetricTicket)}
-        stale={stale.sort((a, b) => a.updated_at.localeCompare(b.updated_at)).map(toMetricTicket)}
-        resolution={resolution}
-        people={team}
-      />
-
-
-      <div className="mb-6 grid gap-3 md:grid-cols-2">
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <p className="text-sm font-semibold text-nexa-navy dark:text-white">Tickets sin asignar</p>
-          <p className="mb-3 text-xs text-slate-400 dark:text-slate-500">Los que llevan más días esperando, primero</p>
-          {unassigned.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">Todo está asignado.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-700">
-              {unassigned.slice(0, 6).map((t) => {
-                const days = daysSince(t.created_at);
-                return (
-                  <li key={t.id}>
-                    <Link
-                      href={`/tickets/${t.id}`}
-                      className="flex items-center gap-2 py-2 text-sm hover:text-nexa-blue"
-                    >
-                      <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
-                        {(t.project as unknown as { code: string } | null)?.code}-{t.ticket_number}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{t.title}</span>
-                      <span
-                        className={`shrink-0 text-xs font-medium ${days >= 7 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}
-                      >
-                        {days === 0 ? "hoy" : `${days} d`}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-          <p className="text-sm font-semibold text-nexa-navy dark:text-white">Personas sin tickets pendientes</p>
-          <p className="mb-3 text-xs text-slate-400 dark:text-slate-500">Disponibles para recibir trabajo (sin contar admins ni pausados)</p>
-          {idle.length === 0 ? (
-            <p className="py-4 text-center text-sm text-slate-400 dark:text-slate-500">Todos tienen trabajo asignado.</p>
-          ) : (
-            <ul className="space-y-2">
-              {idle.slice(0, 8).map((p) => (
-                <li key={p.id} className="flex items-center gap-2 text-sm">
-                  <Avatar name={p.name} size="sm" />
-                  <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{p.name}</span>
-                  <span className="text-xs text-slate-400 dark:text-slate-500">{ROLE_LABELS[p.role]}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {neverReported.length > 0 && (
-            <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-              QA que aún no han reportado ningún ticket:{" "}
-              {neverReported.map((p) => p.full_name ?? p.email).join(", ")}
-            </p>
-          )}
-        </div>
-      </div>
-
-      <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <AutoSubmitForm className="flex flex-wrap gap-2 text-sm" action="/dashboard">
-          {teamFilter && <input type="hidden" name="team" value={teamFilter} />}
-          <select
-            name="project"
-            defaultValue={project ?? ""}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          >
-            <option value="">Todas las apps</option>
-            {projects?.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            name="status"
-            defaultValue={status ?? ""}
-            className="rounded-md border border-slate-300 bg-white px-2 py-1.5 outline-none focus:border-nexa-blue dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-          >
-            <option value="">Todos los estados</option>
-            {TICKET_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
-
-          <label className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1.5 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
-            <input type="checkbox" name="mine" value="1" defaultChecked={mine === "1"} />
-            Asignados a mí
-          </label>
-
-          {hasFilters && (
-            <Link
-              href={teamFilter ? `/dashboard?team=${teamFilter}` : "/dashboard"}
-              className="rounded-md px-3 py-1.5 text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-            >
-              Limpiar filtros
-            </Link>
-          )}
-        </AutoSubmitForm>
-
-        <SearchInput
-          placeholder="Buscar por código, título o persona..."
-          scopeSelector="#tickets-results"
-          noResultsSelector="#tickets-no-local-matches"
-          className="sm:w-64"
+        <MetricCard label="Críticos abiertos" value={stats.critical} tone={stats.critical ? "danger" : "default"} />
+        <TeamMetrics
+          unassigned={unassigned.map(toMetricTicket)}
+          stale={stale.sort((a, b) => a.updated_at.localeCompare(b.updated_at)).map(toMetricTicket)}
+          resolution={resolution}
+          people={team}
         />
       </div>
 
       {error && (
-        <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <p role="alert" className="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
           Error cargando tickets: {error.message}
         </p>
       )}
 
-      {rows.length === 0 ? (
-        <EmptyState
-          title="No hay tickets"
-          description={
-            hasFilters || teamFilter
-              ? "No hay tickets que coincidan con estos filtros."
-              : "Todavía no se han reportado tickets para este proyecto."
-          }
-          action={
-            !(hasFilters || teamFilter) && (
-              <Button href="/tickets/new" variant="primary" size="sm">
-                <PlusIcon /> Crear ticket
-              </Button>
-            )
-          }
-        />
-      ) : (
-        <div id="tickets-results">
-          {/* Tabla — desktop / tablet */}
-          <div className="hidden overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:block">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-200 bg-nexa-light/50 text-xs uppercase tracking-wide text-nexa-navy/70 dark:border-slate-700 dark:bg-slate-700/40 dark:text-slate-300">
-                  <tr>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Código</th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Ticket</th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Proyecto</th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Estado</th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Severidad</th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Prioridad</th>
-                    <th scope="col" className="px-4 py-2.5 font-medium">Asignado</th>
-                  </tr>
-                </thead>
-                <tbody id="tickets-table-body" className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {rows.map((t) => {
-                    const code = `${t.project?.code}-${t.ticket_number}`;
-                    const assigneeName = t.assignee?.full_name ?? t.assignee?.email ?? null;
-                    return (
-                      <tr
-                        key={t.id}
-                        data-search-row
-                        data-search-text={`${code} ${t.title} ${assigneeName ?? ""} ${t.reporter?.full_name ?? t.reporter?.email ?? ""} ${t.project?.name ?? ""}`}
-                        className="h-14 transition-colors hover:bg-nexa-light/30 dark:hover:bg-slate-700/40"
-                      >
-                        <td className="px-4 py-2.5">
-                          <Link
-                            href={`/tickets/${t.id}`}
-                            className="font-mono text-xs text-slate-400 hover:text-nexa-blue hover:underline dark:text-slate-500"
-                          >
-                            {code}
-                          </Link>
-                        </td>
-                        <td className="max-w-[280px] px-4 py-2.5">
-                          <Link
-                            href={`/tickets/${t.id}`}
-                            className="block truncate font-medium text-slate-800 hover:text-nexa-blue hover:underline dark:text-slate-100"
-                          >
-                            {t.title}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <ProjectBadge>{t.project?.name}</ProjectBadge>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <StatusBadge status={t.status} label={STATUS_LABELS[t.status]} />
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <SeverityBadge severity={t.severity} label={SEVERITY_LABELS[t.severity]} />
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <PriorityBadge priority={t.priority} label={PRIORITY_LABELS[t.priority]} />
-                        </td>
-                        <td className="px-4 py-2.5">
-                          {assigneeName ? (
-                            <div className="flex items-center gap-2">
-                              <Avatar name={assigneeName} size="sm" />
-                              <span className="truncate text-slate-600 dark:text-slate-300">{assigneeName}</span>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 dark:text-slate-500">Sin asignar</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p id="tickets-no-local-matches" className="hidden px-4 py-8 text-center text-sm text-slate-400">
-              Ningún ticket visible coincide con tu búsqueda.
-            </p>
+      <TicketTable
+        rows={rows}
+        initialQuery={q ?? ""}
+        filtered={hasFilters}
+        emptyAction={
+          <Button href="/tickets/new" variant="primary" size="sm">
+            <PlusIcon /> Crear ticket
+          </Button>
+        }
+      />
+
+      {/* Resumen del equipo: secundario y colapsable */}
+      <details className="group rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-nexa-navy outline-none focus-visible:ring-2 focus-visible:ring-nexa-blue/40 dark:text-white [&::-webkit-details-marker]:hidden">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="text-slate-400 transition-transform group-open:rotate-90">
+            <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Resumen del equipo
+          <span className="hidden font-normal text-slate-400 sm:inline">· rankings, sin asignar y personas disponibles</span>
+        </summary>
+
+        <div className="space-y-3 border-t border-slate-100 p-3 dark:border-slate-700">
+          <div className="grid gap-3 md:grid-cols-3">
+            <Leaderboard title="Quién reporta más" subtitle="Tickets creados" entries={top(reported)} unit="tickets" />
+            <Leaderboard title="Quién resuelve más" subtitle="Tickets pasados a Certificado o Cerrado" entries={top(resolved)} unit="resueltos" />
+            <Leaderboard title="Más carga pendiente" subtitle="Tickets sin certificar y tareas abiertas del bot" entries={top(pending)} unit="pendientes" />
           </div>
 
-          {/* Cards — mobile */}
-          <div className="space-y-3 sm:hidden">
-            {rows.map((t) => {
-              const code = `${t.project?.code}-${t.ticket_number}`;
-              const assigneeName = t.assignee?.full_name ?? t.assignee?.email ?? null;
-              return (
-                <Link
-                  key={t.id}
-                  href={`/tickets/${t.id}`}
-                  data-search-row
-                  data-search-text={`${code} ${t.title} ${assigneeName ?? ""} ${t.reporter?.full_name ?? t.reporter?.email ?? ""} ${t.project?.name ?? ""}`}
-                  className="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800"
-                >
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs text-slate-400 dark:text-slate-500">{code}</span>
-                    <StatusBadge status={t.status} label={STATUS_LABELS[t.status]} />
-                  </div>
-                  <p className="mb-2 text-sm font-medium text-slate-800 dark:text-slate-100">{t.title}</p>
-                  <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                    <ProjectBadge>{t.project?.name}</ProjectBadge>
-                    <SeverityBadge severity={t.severity} label={SEVERITY_LABELS[t.severity]} />
-                    <PriorityBadge priority={t.priority} label={PRIORITY_LABELS[t.priority]} />
-                  </div>
-                  <div className="flex items-center gap-2 border-t border-slate-100 pt-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                    {assigneeName ? (
-                      <>
-                        <Avatar name={assigneeName} size="sm" />
-                        {assigneeName}
-                      </>
-                    ) : (
-                      "Sin asignar"
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+              <p className="text-sm font-semibold text-nexa-navy dark:text-white">Tickets sin asignar</p>
+              <p className="mb-2 text-xs text-slate-400 dark:text-slate-500">Los que llevan más días esperando, primero</p>
+              {unassigned.length === 0 ? (
+                <p className="py-3 text-center text-sm text-slate-400 dark:text-slate-500">Todo está asignado.</p>
+              ) : (
+                <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {unassigned.slice(0, 6).map((t) => {
+                    const days = daysSince(t.created_at);
+                    return (
+                      <li key={t.id}>
+                        <Link href={`/tickets/${t.id}`} className="flex items-center gap-2 py-1.5 text-sm hover:text-nexa-blue">
+                          <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
+                            {(t.project as unknown as { code: string } | null)?.code}-{t.ticket_number}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{t.title}</span>
+                          <span className={`shrink-0 text-xs font-medium ${days >= 7 ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400"}`}>
+                            {days === 0 ? "hoy" : `${days} d`}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+              <p className="text-sm font-semibold text-nexa-navy dark:text-white">Personas sin tickets pendientes</p>
+              <p className="mb-2 text-xs text-slate-400 dark:text-slate-500">Disponibles para recibir trabajo (sin contar admins ni pausados)</p>
+              {idle.length === 0 ? (
+                <p className="py-3 text-center text-sm text-slate-400 dark:text-slate-500">Todos tienen trabajo asignado.</p>
+              ) : (
+                <ul className="grid gap-x-4 gap-y-1.5 sm:grid-cols-2">
+                  {idle.slice(0, 10).map((p) => (
+                    <li key={p.id} className="flex items-center gap-2 text-sm">
+                      <Avatar name={p.name} size="sm" />
+                      <span className="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{p.name}</span>
+                      <span className="text-xs text-slate-400 dark:text-slate-500">{ROLE_LABELS[p.role]}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {neverReported.length > 0 && (
+                <p className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  QA que aún no han reportado ningún ticket: {neverReported.map((p) => p.full_name ?? p.email).join(", ")}
+                </p>
+              )}
+            </div>
           </div>
         </div>
-      )}
+      </details>
     </div>
   );
 }
