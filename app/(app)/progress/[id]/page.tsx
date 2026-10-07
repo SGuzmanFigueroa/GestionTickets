@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { canManageProjectWith } from "@/lib/project-permissions";
 import { formatDate } from "@/lib/format";
-import SuccessBanner from "@/components/SuccessBanner";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import RequirementCheckbox from "@/components/RequirementCheckbox";
@@ -31,7 +30,7 @@ export default async function ProjectProgressPage({
   searchParams: Promise<{ success?: string; error?: string; view?: string; source?: string }>;
 }) {
   const { id } = await params;
-  const { success, error, view: rawView, source: rawSource } = await searchParams;
+  const { view: rawView, source: rawSource } = await searchParams;
   const view: View = rawView === "pending" || rawView === "done" ? rawView : "all";
   const source = rawSource === "mvp" || rawSource === "figma" ? rawSource : null;
 
@@ -202,11 +201,6 @@ export default async function ProjectProgressPage({
           </details>
         )}
       </div>
-
-      {success && <SuccessBanner message={success} />}
-      {error && (
-        <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>
-      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link href={hrefWith({ view: "all" })} className={chip(view === "all")}>

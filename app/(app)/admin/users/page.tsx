@@ -2,7 +2,6 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrLeader } from "@/lib/auth";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
-import SuccessBanner from "@/components/SuccessBanner";
 import AutoSubmitForm from "@/components/AutoSubmitForm";
 import RoleSelect from "@/components/RoleSelect";
 import DiscordIdInput from "@/components/DiscordIdInput";
@@ -28,7 +27,7 @@ export default async function AdminUsersPage({
 }: {
   searchParams: Promise<{ error?: string; success?: string; role?: string; project?: string }>;
 }) {
-  const { error, success, role, project } = await searchParams;
+  const { role, project } = await searchParams;
   const { profile: admin, isAdmin } = await requireAdminOrLeader();
   const assignableRoles = isAdmin
     ? USER_ROLES
@@ -87,11 +86,6 @@ export default async function AdminUsersPage({
         {!isAdmin &&
           " Como líder, no puedes tocar cuentas admin ni de otros líderes, ni volver a nadie admin o líder."}
       </p>
-
-      {success && <SuccessBanner message={success} />}
-      {error && (
-        <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>
-      )}
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/admin/users">

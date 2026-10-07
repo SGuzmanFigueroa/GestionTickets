@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/auth";
-import SuccessBanner from "@/components/SuccessBanner";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
@@ -10,12 +9,7 @@ import Link from "next/link";
 import NewProjectModal from "./NewProjectModal";
 import { deleteProject } from "./actions";
 
-export default async function AdminProjectsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string; success?: string }>;
-}) {
-  const { error, success } = await searchParams;
+export default async function AdminProjectsPage() {
   await requireAdmin();
   const supabase = await createClient();
   const [{ data: projects }, { data: leaders }, { data: requirements }] = await Promise.all([
@@ -43,11 +37,6 @@ export default async function AdminProjectsPage({
         description="Administra las aplicaciones y productos que prueba el equipo QA."
         actions={<NewProjectModal leaders={leaders ?? []} />}
       />
-
-      {success && <SuccessBanner message={success} />}
-      {error && (
-        <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>
-      )}
 
       {projects?.length === 0 ? (
         <EmptyState

@@ -22,7 +22,7 @@ export default async function NewTicketPage({
 }: {
   searchParams: Promise<{ error?: string; project_id?: string; title?: string; test_case_id?: string }>;
 }) {
-  const { error, project_id, title, test_case_id } = await searchParams;
+  const { project_id, title, test_case_id } = await searchParams;
   const supabase = await createClient();
   const { data: projects } = await supabase.from("projects").select("id, name").order("name");
 
@@ -37,10 +37,6 @@ export default async function NewTicketPage({
         <p className="mb-4 rounded-md bg-nexa-light p-3 text-sm text-nexa-blue dark:bg-blue-950/30 dark:text-blue-300">
           Este ticket va a quedar enlazado al caso de prueba que falló.
         </p>
-      )}
-
-      {error && (
-        <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{error}</p>
       )}
 
       {!projects?.length ? (

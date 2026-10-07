@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { TestCaseStatusBadge, ProjectBadge } from "@/components/Badge";
 import SubmitButton from "@/components/SubmitButton";
-import SuccessBanner from "@/components/SuccessBanner";
 import { formatDateTime } from "@/lib/format";
 import {
   TEST_CASE_STATUSES,
@@ -15,13 +14,10 @@ import { recordTestCaseRun, updateTestCase } from "./actions";
 
 export default async function TestCaseDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ success?: string; error?: string }>;
 }) {
   const { id } = await params;
-  const { success, error: errorMessage } = await searchParams;
   await requireProfile();
   const supabase = await createClient();
 
@@ -57,15 +53,6 @@ export default async function TestCaseDetailPage({
       >
         ← Volver a casos de prueba
       </Link>
-
-      {success && (
-        <div className="mt-3">
-          <SuccessBanner message={success} />
-        </div>
-      )}
-      {errorMessage && (
-        <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">{errorMessage}</p>
-      )}
 
       <div className="mt-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <div className="h-1.5 bg-gradient-to-r from-nexa-blue to-nexa-sky" />
