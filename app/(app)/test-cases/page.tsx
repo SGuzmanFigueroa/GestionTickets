@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth";
+import { getScope, inScope } from "@/lib/scope";
 import { TestCaseStatusBadge } from "@/components/Badge";
 import Avatar from "@/components/ui/Avatar";
 import { FILTER_SELECT, SURFACE, TABLE_HEAD, TABLE_ROW, TABLE_TOOLBAR, TD, TH } from "@/components/ui/styles";
 import AutoSubmitForm from "@/components/AutoSubmitForm";
+import FilterMemory from "@/components/FilterMemory";
 import PageHeader from "@/components/ui/PageHeader";
 import MetricCard from "@/components/ui/MetricCard";
 import EmptyState from "@/components/ui/EmptyState";
@@ -23,12 +26,13 @@ export default async function TestCasesPage({
   searchParams: Promise<{ project?: string; status?: string }>;
 }) {
   const { project, status } = await searchParams;
+  const profile = await requireProfile();
   const supabase = await createClient();
+  const scope = await getScope(supabase, profile);
 
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, name, slug")
-    .order("name");
+  // Selector de proyecto: solo los propios (admin: todos). La base ya filtra los casos.
+  const { data: allProjects } = await supabase.from("projects").select("id, name, slug").order("name");
+  const projects = (allProjects ?? []).filter((p) => inScope(scope.projectIds, p.id));
 
   let query = supabase
     .from("test_cases")
@@ -65,6 +69,7 @@ export default async function TestCasesPage({
         }
       />
 
+      <FilterMemory storageKey="test-cases" />
       <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/test-cases">
         <label className="sr-only" htmlFor="tc-project">Proyecto</label>
         <select id="tc-project" name="project" defaultValue={project ?? ""} className={FILTER_SELECT}>
@@ -82,7 +87,7 @@ export default async function TestCasesPage({
         </select>
         {hasFilters && (
           <Link
-            href="/test-cases"
+            href="/test-cases?clear=1"
             className="inline-flex h-8 items-center rounded-md px-2.5 text-slate-500 transition-colors hover:bg-slate-200/60 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             Limpiar filtros

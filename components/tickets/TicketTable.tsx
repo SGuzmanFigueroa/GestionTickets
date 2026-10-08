@@ -39,6 +39,15 @@ type SortKey = "code" | "title" | "status" | "priority" | "severity" | "project"
 type Sort = { key: SortKey; dir: "asc" | "desc" };
 
 const PAGE = 50;
+const DEFAULT_SORT: Sort = { key: "updated", dir: "desc" };
+const SORT_KEYS: SortKey[] = ["code", "title", "status", "priority", "severity", "project", "assignee", "reporter", "updated"];
+
+function parseSort(value: string | undefined): Sort {
+  const [key, dir] = (value ?? "").split(":");
+  return SORT_KEYS.includes(key as SortKey) && (dir === "asc" || dir === "desc")
+    ? { key: key as SortKey, dir }
+    : DEFAULT_SORT;
+}
 
 // Orden "natural" de cada columna (ej. prioridad: urgente primero).
 const rank = <T extends string>(list: readonly T[]) => (v: T) => list.indexOf(v);
@@ -123,19 +132,36 @@ function Th({
 export default function TicketTable({
   rows,
   initialQuery = "",
+  initialSort,
   emptyAction,
   filtered,
 }: {
   rows: TicketRow[];
   initialQuery?: string;
+  /** "clave:asc" | "clave:desc" (viene de ?sort=). */
+  initialSort?: string;
   emptyAction?: React.ReactNode;
   /** Hay filtros activos (para el mensaje de vacío). */
   filtered: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
-  const [sort, setSort] = useState<Sort>({ key: "updated", dir: "desc" });
+  const [sort, setSort] = useState<Sort>(() => parseSort(initialSort));
   const [limit, setLimit] = useState(PAGE);
+
+  // Búsqueda y orden viven en la URL (?q=, ?sort=) sin recargar la página, para
+  // que FilterMemory los recuerde al volver a la lista.
+  function syncUrl(next: { q?: string; sort?: Sort }) {
+    const params = new URLSearchParams(window.location.search);
+    const q = next.q ?? query;
+    const s = next.sort ?? sort;
+    if (q.trim()) params.set("q", q);
+    else params.delete("q");
+    if (s.key !== DEFAULT_SORT.key || s.dir !== DEFAULT_SORT.dir) params.set("sort", `${s.key}:${s.dir}`);
+    else params.delete("sort");
+    const qs = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+  }
 
   const result = useMemo(() => {
     const words = normalize(query.trim()).split(/\s+/).filter(Boolean);
@@ -152,7 +178,10 @@ export default function TicketTable({
   const visible = result.slice(0, limit);
 
   function toggleSort(key: SortKey) {
-    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "updated" ? "desc" : "asc" }));
+    const next: Sort =
+      sort.key === key ? { key, dir: sort.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "updated" ? "desc" : "asc" };
+    setSort(next);
+    syncUrl({ sort: next });
   }
 
   const th = (k: SortKey, label: string, className = "") => (
@@ -172,6 +201,7 @@ export default function TicketTable({
             onChange={(e) => {
               setQuery(e.target.value);
               setLimit(PAGE);
+              syncUrl({ q: e.target.value });
             }}
             placeholder="Buscar en esta lista…"
             aria-label="Buscar tickets en la lista"

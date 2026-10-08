@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
+import { getScope, inScope } from "@/lib/scope";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
 import ProgressBar from "@/components/ui/ProgressBar";
@@ -10,15 +11,18 @@ import { SURFACE, TABLE_HEAD, TABLE_ROW, TD, TH } from "@/components/ui/styles";
 type Counts = { total: number; done: number; mvp: [number, number]; figma: [number, number] };
 
 export default async function ProgressPage() {
-  await requireProfile();
+  const profile = await requireProfile();
   const supabase = await createClient();
+  const scope = await getScope(supabase, profile);
 
-  const [{ data: projects }, { data: requirements }, { data: leaders }] = await Promise.all([
+  const [{ data: allProjects }, { data: requirements }, { data: leaders }] = await Promise.all([
     supabase.from("projects").select("id, name, code, description, leader_id, figma_url, mvp_url").order("name"),
     supabase.from("project_requirements").select("project_id, source, done"),
     supabase.from("profiles").select("id, full_name, email").eq("role", "lider"),
   ]);
 
+  // Cada uno ve solo sus proyectos (admin: todos).
+  const projects = (allProjects ?? []).filter((p) => inScope(scope.projectIds, p.id));
   const leaderName = new Map((leaders ?? []).map((l) => [l.id, l.full_name ?? l.email]));
   const counts = new Map<string, Counts>();
   for (const r of requirements ?? []) {

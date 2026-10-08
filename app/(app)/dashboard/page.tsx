@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import AutoSubmitForm from "@/components/AutoSubmitForm";
+import FilterMemory from "@/components/FilterMemory";
 import MetricCard from "@/components/ui/MetricCard";
 import Leaderboard, { type LeaderboardEntry } from "@/components/ui/Leaderboard";
 import Avatar from "@/components/ui/Avatar";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { FILTER_SELECT } from "@/components/ui/styles";
 import TicketTable, { type TicketRow } from "@/components/tickets/TicketTable";
 import { daysSince, formatDateTime, timeAgo } from "@/lib/format";
+import { getScope, inScope } from "@/lib/scope";
 import { ROLE_LABELS, type UserRole } from "@/lib/types";
 import { PlusIcon } from "@/components/ui/icons";
 import {
@@ -36,12 +38,16 @@ export default async function DashboardPage({
     mine?: string;
     team?: string;
     q?: string;
+    sort?: string;
   }>;
 }) {
-  const { project, status, priority, assignee, mine, team: rawTeam, q } = await searchParams;
+  const { project, status, priority, assignee, mine, team: rawTeam, q, sort } = await searchParams;
   const teamFilter = TEAMS.includes(rawTeam as UserRole) ? (rawTeam as UserRole) : null;
   const profile = await requireProfile();
   const supabase = await createClient();
+  // Alcance por rol: admin todo; líder y miembros solo sus proyectos y su gente.
+  const scope = await getScope(supabase, profile);
+  const showTeam = profile.role === "admin" || profile.role === "lider";
 
   const [{ data: projects }, { data: allTickets }, { data: people }, { data: resolutions }, { data: inactiveIds }, { data: botLoad }] = await Promise.all([
     supabase.from("projects").select("id, name, slug").order("name"),
@@ -74,7 +80,7 @@ export default async function DashboardPage({
 
   const top = (counts: Map<string, number>): LeaderboardEntry[] =>
     [...counts.entries()]
-      .filter(([id]) => nameOf.has(id) && personInTeam(id))
+      .filter(([id]) => nameOf.has(id) && personInTeam(id) && inScope(scope.personIds, id))
       .map(([id, count]) => ({ name: nameOf.get(id)!, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       .slice(0, 5);
@@ -224,7 +230,7 @@ export default async function DashboardPage({
 
   // Personas activas del equipo (sin admin ni pausados/retirados) con su carga pendiente.
   const team: MetricPerson[] = (people ?? [])
-    .filter((p) => p.role !== "admin" && !inactive.has(p.id) && personInTeam(p.id))
+    .filter((p) => p.role !== "admin" && !inactive.has(p.id) && personInTeam(p.id) && inScope(scope.personIds, p.id))
     .map((p) => ({
       id: p.id,
       name: p.full_name ?? p.email,
@@ -235,7 +241,7 @@ export default async function DashboardPage({
     .sort((a, b) => a.name.localeCompare(b.name));
   const idle = team.filter((p) => p.pending === 0);
   const neverReported = (people ?? []).filter(
-    (p) => p.role === "qa" && !reported.has(p.id) && !inactive.has(p.id) && personInTeam(p.id),
+    (p) => p.role === "qa" && !reported.has(p.id) && !inactive.has(p.id) && personInTeam(p.id) && inScope(scope.personIds, p.id),
   );
 
 
@@ -273,7 +279,7 @@ export default async function DashboardPage({
   }));
 
   const assignablePeople = (people ?? [])
-    .filter((p) => !inactive.has(p.id))
+    .filter((p) => !inactive.has(p.id) && inScope(scope.personIds, p.id))
     .map((p) => ({ id: p.id, name: p.full_name ?? p.email }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -290,7 +296,8 @@ export default async function DashboardPage({
       </div>
 
       {/* Filtros (se aplican al instante) */}
-      <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/dashboard">
+      <FilterMemory storageKey="dashboard" />
+      <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/dashboard" preserve={["q", "sort"]}>
         <label className="sr-only" htmlFor="f-status">Estado</label>
         <select id="f-status" name="status" defaultValue={status ?? ""} className={FILTER_SELECT}>
           <option value="">Estado: todos</option>
@@ -308,7 +315,7 @@ export default async function DashboardPage({
         <label className="sr-only" htmlFor="f-project">Proyecto</label>
         <select id="f-project" name="project" defaultValue={project ?? ""} className={FILTER_SELECT}>
           <option value="">Proyecto: todos</option>
-          {projects?.map((p) => (
+          {projects?.filter((p) => inScope(scope.projectIds, p.id)).map((p) => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
         </select>
@@ -333,7 +340,7 @@ export default async function DashboardPage({
         </label>
         {hasFilters && (
           <Link
-            href="/dashboard"
+            href="/dashboard?clear=1"
             className="inline-flex h-8 items-center rounded-md px-2.5 text-slate-500 transition-colors hover:bg-slate-200/60 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             Limpiar filtros
@@ -342,17 +349,19 @@ export default async function DashboardPage({
       </AutoSubmitForm>
 
       {/* Resumen compacto: no compite con la lista */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-8">
+      <div className={`grid grid-cols-2 gap-2 sm:grid-cols-4 ${showTeam ? "xl:grid-cols-8" : ""}`}>
         <MetricCard label="Total" value={stats.total} />
         <MetricCard label="Por hacer" value={stats.open} tone="primary" />
         <MetricCard label="En progreso" value={stats.inProgress} tone="warning" />
         <MetricCard label="Críticos abiertos" value={stats.critical} tone={stats.critical ? "danger" : "default"} />
-        <TeamMetrics
-          unassigned={unassigned.map(toMetricTicket)}
-          stale={stale.sort((a, b) => a.updated_at.localeCompare(b.updated_at)).map(toMetricTicket)}
-          resolution={resolution}
-          people={team}
-        />
+        {showTeam && (
+          <TeamMetrics
+            unassigned={unassigned.map(toMetricTicket)}
+            stale={stale.sort((a, b) => a.updated_at.localeCompare(b.updated_at)).map(toMetricTicket)}
+            resolution={resolution}
+            people={team}
+          />
+        )}
       </div>
 
       {error && (
@@ -364,6 +373,7 @@ export default async function DashboardPage({
       <TicketTable
         rows={rows}
         initialQuery={q ?? ""}
+        initialSort={sort}
         filtered={hasFilters}
         emptyAction={
           <Button href="/tickets/new" variant="primary" size="sm">
@@ -373,6 +383,7 @@ export default async function DashboardPage({
       />
 
       {/* Resumen del equipo: secundario y colapsable */}
+      {showTeam && (
       <details className="group rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-semibold text-nexa-navy outline-none focus-visible:ring-2 focus-visible:ring-nexa-blue/40 dark:text-white [&::-webkit-details-marker]:hidden">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="text-slate-400 transition-transform group-open:rotate-90">
@@ -442,6 +453,7 @@ export default async function DashboardPage({
           </div>
         </div>
       </details>
+      )}
     </div>
   );
 }

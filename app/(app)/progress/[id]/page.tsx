@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { canManageProjectWith } from "@/lib/project-permissions";
+import { getScope, inScope } from "@/lib/scope";
 import { formatDate } from "@/lib/format";
 import SubmitButton from "@/components/SubmitButton";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
@@ -53,8 +54,11 @@ export default async function ProjectProgressPage({
   ]);
 
   if (!project) notFound();
+  // Solo el admin ve proyectos ajenos.
+  const scope = await getScope(supabase, profile);
+  if (!inScope(scope.projectIds, project.id)) notFound();
 
-  const canManage = canManageProjectWith(profile, project.leader_id);
+  const canManage = canManageProjectWith(profile, project.leader_id, inScope(scope.projectIds, project.id));
   const isAdmin = profile.role === "admin";
   const nameOf = new Map((people ?? []).map((p) => [p.id, p.full_name ?? p.email]));
   const all = (reqs as ProjectRequirement[] | null) ?? [];

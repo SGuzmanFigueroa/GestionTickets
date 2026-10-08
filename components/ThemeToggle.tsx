@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 export function ThemeInitScript() {
   const code = `
     try {
-      var t = localStorage.getItem('theme');
+      var m = document.cookie.match(/(?:^|; )nexa_theme=(dark|light)/);
+      var t = m ? m[1] : localStorage.getItem('theme');
       if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         document.documentElement.classList.add('dark');
       }
@@ -53,6 +54,8 @@ export default function ThemeToggle({ className = ICON_DEFAULT }: { className?: 
     const next = !isDark;
     setIsDark(next);
     document.documentElement.classList.toggle("dark", next);
+    // Cookie (la lee el servidor para pintar sin parpadeo) + localStorage (respaldo).
+    document.cookie = `nexa_theme=${next ? "dark" : "light"}; path=/; max-age=31536000; samesite=lax`;
     try {
       localStorage.setItem("theme", next ? "dark" : "light");
     } catch {

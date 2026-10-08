@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdminOrLeader } from "@/lib/auth";
+import { getScope, inScope } from "@/lib/scope";
 import ConfirmSubmitButton from "@/components/ConfirmSubmitButton";
 import AutoSubmitForm from "@/components/AutoSubmitForm";
+import FilterMemory from "@/components/FilterMemory";
 import RoleSelect from "@/components/RoleSelect";
 import DiscordIdInput from "@/components/DiscordIdInput";
 import PageHeader from "@/components/ui/PageHeader";
@@ -51,13 +53,16 @@ export default async function AdminUsersPage({
     query = query.eq("role", role);
   }
 
-  const [{ data: users }, { data: projectRows }, { data: projects }] = await Promise.all([
+  const [{ data: users }, { data: projectRows }, { data: allProjects }, scope] = await Promise.all([
     query,
     supabase
       .from("team_member_projects")
       .select("project:projects(id, code, name), member:team_members(profile_id)"),
     supabase.from("projects").select("id, code, name").order("name"),
+    getScope(supabase, admin),
   ]);
+  // Un líder solo ve sus proyectos y a la gente de esos proyectos (admin: todo).
+  const projects = (allProjects ?? []).filter((p) => inScope(scope.projectIds, p.id));
 
   const projectsByProfileId = new Map<string, { id: string; code: string }[]>();
   for (const row of projectRows ?? []) {
@@ -71,6 +76,7 @@ export default async function AdminUsersPage({
 
   // Filtro por proyecto (se combina con el de rol): "none" = sin proyecto asignado.
   const rows = ((users as Profile[] | null) ?? []).filter((u) => {
+    if (!inScope(scope.personIds, u.id)) return false;
     if (!project) return true;
     const assigned = projectsByProfileId.get(u.id) ?? [];
     return project === "none" ? assigned.length === 0 : assigned.some((p) => p.id === project);
@@ -102,6 +108,7 @@ export default async function AdminUsersPage({
         }
       />
 
+      <FilterMemory storageKey="users" />
       <AutoSubmitForm className="flex flex-wrap items-center gap-2 text-sm" action="/admin/users">
         <label className="sr-only" htmlFor="u-role">Rol</label>
         <select id="u-role" name="role" defaultValue={role ?? ""} className={FILTER_SELECT}>
@@ -120,7 +127,7 @@ export default async function AdminUsersPage({
         </select>
         {hasFilters && (
           <Link
-            href="/admin/users"
+            href="/admin/users?clear=1"
             className="inline-flex h-8 items-center rounded-md px-2.5 text-slate-500 transition-colors hover:bg-slate-200/60 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
           >
             Limpiar filtros

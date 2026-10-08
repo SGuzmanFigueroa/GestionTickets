@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth";
+import { getScope, inScope } from "@/lib/scope";
 import SubmitButton from "@/components/SubmitButton";
 import EmptyState from "@/components/ui/EmptyState";
 import { createTestCase } from "./actions";
@@ -10,8 +12,11 @@ export default async function NewTestCasePage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const profile = await requireProfile();
   const supabase = await createClient();
-  const { data: projects } = await supabase.from("projects").select("id, name").order("name");
+  const scope = await getScope(supabase, profile);
+  const { data: allProjects } = await supabase.from("projects").select("id, name").order("name");
+  const projects = (allProjects ?? []).filter((p) => inScope(scope.projectIds, p.id));
 
   return (
     <div className="max-w-2xl">

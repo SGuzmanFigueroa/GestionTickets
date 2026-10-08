@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { allowedStatuses } from "@/lib/ticket-permissions";
 import PageHeader from "@/components/ui/PageHeader";
+import FilterMemory from "@/components/FilterMemory";
 import { Button } from "@/components/ui/Button";
 import { PlusIcon } from "@/components/ui/icons";
 import type { TicketPriority, TicketSeverity, TicketStatus } from "@/lib/types";
@@ -69,6 +70,7 @@ export default async function BoardPage({
 
   return (
     <div>
+      <FilterMemory storageKey="board" />
       <PageHeader
         title="Tablero"
         description={`Arrastra cada ticket por su etapa: Por hacer → En progreso → Hecho → En revisión → Certificado. ${scopeText}`}
@@ -84,7 +86,7 @@ export default async function BoardPage({
           <span className="mr-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
             Proyecto
           </span>
-          <Link href="/board" className={chip(!selected)} aria-current={!selected ? "page" : undefined}>
+          <Link href="/board?clear=1" className={chip(!selected)} aria-current={!selected ? "page" : undefined}>
             Todos
           </Link>
           {projects!.map((p) => (

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { requireProfile } from "@/lib/auth";
+import { getScope, inScope } from "@/lib/scope";
 import SubmitButton from "@/components/SubmitButton";
 import ImagePasteUpload from "@/components/ImagePasteUpload";
 import EmptyState from "@/components/ui/EmptyState";
@@ -33,14 +35,18 @@ export default async function NewTicketPage({
   searchParams: Promise<{ project_id?: string; title?: string; test_case_id?: string }>;
 }) {
   const { project_id, title, test_case_id } = await searchParams;
+  const profile = await requireProfile();
   const supabase = await createClient();
-  const [{ data: projects }, { data: people }, { data: inactiveIds }] = await Promise.all([
+  const [scope, { data: allProjects }, { data: people }, { data: inactiveIds }] = await Promise.all([
+    getScope(supabase, profile),
     supabase.from("projects").select("id, name, code").order("name"),
     supabase.from("profiles").select("id, full_name, email, role").order("full_name"),
     supabase.rpc("inactive_profile_ids"),
   ]);
   const inactive = new Set<string>((inactiveIds as string[] | null) ?? []);
-  const assignable = (people ?? []).filter((p) => !inactive.has(p.id));
+  // Solo proyectos y personas de mis proyectos (admin: todos).
+  const projects = (allProjects ?? []).filter((p) => inScope(scope.projectIds, p.id));
+  const assignable = (people ?? []).filter((p) => !inactive.has(p.id) && inScope(scope.personIds, p.id));
 
   return (
     <div className="mx-auto max-w-6xl">

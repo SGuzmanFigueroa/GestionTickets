@@ -29,6 +29,14 @@ export async function createTicket(formData: FormData) {
     redirect(`/tickets/new?error=${encodeURIComponent("Completa app, título y descripción.")}`);
   }
 
+  // Solo se reporta en proyectos propios (admin: en cualquiera).
+  if (profile.role !== "admin") {
+    const { data: myProjectIds } = await supabase.rpc("my_project_ids");
+    if (!((myProjectIds as string[] | null) ?? []).includes(projectId)) {
+      redirect(`/tickets/new?error=${encodeURIComponent("Solo puedes reportar tickets en tus proyectos.")}`);
+    }
+  }
+
   const { data, error } = await supabase
     .from("tickets")
     .insert({

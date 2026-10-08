@@ -21,8 +21,19 @@ function back(formData: FormData, kind: "success" | "error", message: string): n
   redirect(`/admin/users?${params.toString()}`);
 }
 
+/** Un líder solo gestiona a la gente de sus proyectos (admin: a todos). */
+async function assertInLeaderScope(formData: FormData, isAdmin: boolean, userId: string) {
+  if (isAdmin) return;
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("my_project_member_ids");
+  if (!((data as string[] | null) ?? []).includes(userId)) {
+    back(formData, "error", "Solo puedes gestionar a personas de tus proyectos.");
+  }
+}
+
 export async function updateUserRole(formData: FormData) {
   const { isAdmin } = await requireAdminOrLeader();
+  await assertInLeaderScope(formData, isAdmin, String(formData.get("user_id") ?? ""));
   const userId = String(formData.get("user_id") ?? "");
   const role = String(formData.get("role") ?? "");
 
@@ -45,7 +56,8 @@ export async function updateUserRole(formData: FormData) {
 }
 
 export async function updateUserDiscordId(formData: FormData) {
-  await requireAdminOrLeader();
+  const { isAdmin } = await requireAdminOrLeader();
+  await assertInLeaderScope(formData, isAdmin, String(formData.get("user_id") ?? ""));
   const userId = String(formData.get("user_id") ?? "");
   const raw = String(formData.get("discord_id") ?? "").trim();
 
