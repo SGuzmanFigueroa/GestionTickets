@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { STATUS_LABELS, type TicketStatus } from "@/lib/types";
+import { seesQaStatuses } from "@/lib/ticket-permissions";
 
 export interface ActivityItem {
   id: string;
@@ -64,6 +65,8 @@ export async function GET() {
 
   for (const h of history ?? []) {
     if (h.field !== "status") continue;
+    // Los pasos de QA (En revisión / Certificado) solo se notifican a QA, líder y admin.
+    if (!seesQaStatuses(profile.role) && (h.new_value === "in_review" || h.new_value === "resolved")) continue;
     const actor = Array.isArray(h.actor) ? h.actor[0] : h.actor;
     const ticket = Array.isArray(h.ticket) ? h.ticket[0] : h.ticket;
     const statusLabel = STATUS_LABELS[h.new_value as TicketStatus] ?? h.new_value;

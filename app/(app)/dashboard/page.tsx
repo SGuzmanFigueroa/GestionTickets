@@ -11,6 +11,7 @@ import { FILTER_SELECT } from "@/components/ui/styles";
 import TicketTable, { type TicketRow } from "@/components/tickets/TicketTable";
 import { daysSince, formatDateTime, timeAgo } from "@/lib/format";
 import { getScope, inScope } from "@/lib/scope";
+import { statusesShownAs, visibleStatus } from "@/lib/ticket-permissions";
 import { ROLE_LABELS, type UserRole } from "@/lib/types";
 import { PlusIcon } from "@/components/ui/icons";
 import {
@@ -273,7 +274,8 @@ export default async function DashboardPage({
     .order("updated_at", { ascending: false });
 
   if (project) query = query.eq("project_id", project);
-  if (status) query = query.eq("status", status);
+  // Quien no ve las etapas de QA filtra por "Hecho" e incluye En revisión y Certificado.
+  if (status) query = query.in("status", statusesShownAs(profile.role, status as TicketStatus));
   if (priority) query = query.eq("priority", priority);
   if (assignee === "none") query = query.is("assignee_id", null);
   else if (assignee) query = query.eq("assignee_id", assignee);
@@ -286,7 +288,7 @@ export default async function DashboardPage({
     code: `${t.project?.code}-${t.ticket_number}`,
     number: t.ticket_number,
     title: t.title,
-    status: t.status,
+    status: visibleStatus(profile.role, t.status),
     priority: t.priority,
     severity: t.severity,
     projectName: t.project?.name ?? "",
@@ -320,7 +322,7 @@ export default async function DashboardPage({
         <label className="sr-only" htmlFor="f-status">Estado</label>
         <select id="f-status" name="status" defaultValue={status ?? ""} className={FILTER_SELECT}>
           <option value="">Estado: todos</option>
-          {TICKET_STATUSES.map((s) => (
+          {TICKET_STATUSES.filter((s) => visibleStatus(profile.role, s) === s).map((s) => (
             <option key={s} value={s}>{STATUS_LABELS[s]}</option>
           ))}
         </select>

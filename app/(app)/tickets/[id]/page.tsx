@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import { ticketPermissions } from "@/lib/ticket-permissions";
+import { ticketPermissions, visibleStatus } from "@/lib/ticket-permissions";
 import { formatDateTime, timeAgo } from "@/lib/format";
 import Avatar from "@/components/ui/Avatar";
 import TicketView from "@/components/ticket/TicketView";
 import type { ActivityItem } from "@/components/ticket/ActivityFeed";
-import type { Profile, TicketComment, TicketWithRelations, UserRole } from "@/lib/types";
+import type { Profile, TicketComment, TicketStatus, TicketWithRelations, UserRole } from "@/lib/types";
 
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -55,6 +55,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const peopleList = (people as Pick<Profile, "id" | "full_name" | "email" | "role">[] | null) ?? [];
   const nameOf = new Map(peopleList.map((p) => [p.id, p.full_name ?? p.email]));
   const personName = (userId: string | null) => (userId ? (nameOf.get(userId) ?? "Usuario eliminado") : null);
+  const shownStatus = (s: string | null) => (s ? visibleStatus(profile.role, s as TicketStatus) : s);
 
   const activity: ActivityItem[] = [
     ...((comments as TicketComment[] | null) ?? []).map((c) => ({
@@ -65,19 +66,26 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
       atLabel: formatDateTime(c.created_at),
       body: c.body,
     })),
-    ...(history ?? []).map((h) => {
+    ...(history ?? []).flatMap((h) => {
       const actor = (Array.isArray(h.actor) ? h.actor[0] : h.actor) as { full_name: string | null; email: string } | null;
-      const isAssignee = h.field !== "status" && h.field !== "project";
-      return {
-        kind: "history" as const,
-        id: h.id,
-        author: actor?.full_name ?? actor?.email ?? "Usuario eliminado",
-        at: h.created_at,
-        atLabel: formatDateTime(h.created_at),
-        field: h.field,
-        from: isAssignee ? personName(h.old_value) : h.old_value,
-        to: isAssignee ? personName(h.new_value) : h.new_value,
-      };
+      const isStatus = h.field === "status";
+      const isAssignee = !isStatus && h.field !== "project";
+      const from = isStatus ? shownStatus(h.old_value) : isAssignee ? personName(h.old_value) : h.old_value;
+      const to = isStatus ? shownStatus(h.new_value) : isAssignee ? personName(h.new_value) : h.new_value;
+      // Pasos de QA (Hecho → En revisión → Certificado) que esta persona ve como "Hecho": no se listan.
+      if (isStatus && from === to) return [];
+      return [
+        {
+          kind: "history" as const,
+          id: h.id,
+          author: actor?.full_name ?? actor?.email ?? "Usuario eliminado",
+          at: h.created_at,
+          atLabel: formatDateTime(h.created_at),
+          field: h.field,
+          from,
+          to,
+        },
+      ];
     }),
   ].sort((a, b) => b.at.localeCompare(a.at));
 
@@ -94,7 +102,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         description: t.description,
         stepsToReproduce: t.steps_to_reproduce ?? "",
         environment: t.environment ?? "",
-        status: t.status,
+        status: visibleStatus(profile.role, t.status),
         priority: t.priority,
         severity: t.severity,
         targetRole: t.target_role,

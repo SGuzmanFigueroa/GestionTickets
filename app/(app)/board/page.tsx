@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import { allowedStatuses } from "@/lib/ticket-permissions";
+import { allowedStatuses, seesQaStatuses, visibleStatus } from "@/lib/ticket-permissions";
 import PageHeader from "@/components/ui/PageHeader";
 import FilterMemory from "@/components/FilterMemory";
 import { Button } from "@/components/ui/Button";
@@ -45,7 +45,8 @@ export default async function BoardPage({
       id: t.id,
       code: `${p?.code ?? "?"}-${t.ticket_number}`,
       title: t.title,
-      status: t.status as TicketStatus,
+      // En revisión y Certificado se muestran como Hecho a quien no es QA, líder ni admin.
+      status: visibleStatus(profile.role, t.status as TicketStatus),
       severity: t.severity as TicketSeverity,
       priority: t.priority as TicketPriority,
       projectName: p?.name ?? "",
@@ -55,6 +56,7 @@ export default async function BoardPage({
     };
   });
 
+  const showQa = seesQaStatuses(profile.role);
   const scopeText = isAdmin
     ? "Ves todos los tickets."
     : profile.role === "lider"
@@ -73,7 +75,9 @@ export default async function BoardPage({
       <FilterMemory storageKey="board" />
       <PageHeader
         title="Tablero"
-        description={`Arrastra cada ticket por su etapa: Por hacer → En progreso → Hecho → En revisión → Certificado. ${scopeText}`}
+        description={`Arrastra cada ticket por su etapa: ${
+          showQa ? "Por hacer → En progreso → Hecho → En revisión → Certificado" : "Por hacer → En progreso → Hecho"
+        }. ${scopeText}`}
         actions={
           <Button href="/tickets/new" variant="primary">
             <PlusIcon /> Nuevo ticket
@@ -108,7 +112,7 @@ export default async function BoardPage({
         </p>
       ) : (
         // key: al cambiar de proyecto se reinicia el estado local del tablero.
-        <KanbanBoard key={selected ?? "all"} initialCards={cards} />
+        <KanbanBoard key={selected ?? "all"} initialCards={cards} showQaColumns={showQa} />
       )}
     </div>
   );

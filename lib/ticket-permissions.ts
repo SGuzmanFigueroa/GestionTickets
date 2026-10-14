@@ -1,4 +1,4 @@
-import type { Profile, Ticket, TicketStatus } from "@/lib/types";
+import type { Profile, Ticket, TicketStatus, UserRole } from "@/lib/types";
 
 type Guarded = Pick<Ticket, "status" | "assignee_id" | "reporter_id">;
 
@@ -6,6 +6,24 @@ export const isFinalStatus = (status: string) => status === "resolved" || status
 
 const ALL_STATUSES: TicketStatus[] = ["open", "in_progress", "done", "in_review", "resolved", "closed", "reopened"];
 const WORK_STATUSES: TicketStatus[] = ["open", "in_progress", "done"];
+/** Etapas de QA: solo QA, líder y admin las ven. */
+const QA_STATUSES: TicketStatus[] = ["in_review", "resolved"];
+
+/** QA, líder y admin ven las etapas En revisión y Certificado. */
+export const seesQaStatuses = (role: UserRole) => role === "admin" || role === "lider" || role === "qa";
+
+/**
+ * Estado tal como lo ve esta persona. Para el resto del equipo el trabajo
+ * termina en "Hecho": En revisión y Certificado se les muestran como Hecho.
+ */
+export function visibleStatus(role: UserRole, status: TicketStatus): TicketStatus {
+  return !seesQaStatuses(role) && QA_STATUSES.includes(status) ? "done" : status;
+}
+
+/** Estados reales que esta persona ve bajo `status` (para filtros). */
+export function statusesShownAs(role: UserRole, status: TicketStatus): TicketStatus[] {
+  return status === "done" && !seesQaStatuses(role) ? ["done", ...QA_STATUSES] : [status];
+}
 
 /**
  * Estados a los que esta persona puede mover el ticket (sin incluir el actual).
@@ -61,7 +79,9 @@ export function ticketPermissions(profile: Pick<Profile, "id" | "role">, t: Guar
   const canEditDetails = !finalized && isLeader;
 
   const lockReason = finalized
-    ? "Ticket certificado o cerrado: solo un admin puede modificarlo."
+    ? seesQaStatuses(profile.role)
+      ? "Ticket certificado o cerrado: solo un admin puede modificarlo."
+      : "Ticket finalizado: solo un admin puede modificarlo."
     : assigned && !isLeader
       ? "Ticket asignado: solo un líder o un admin puede reasignarlo."
       : null;

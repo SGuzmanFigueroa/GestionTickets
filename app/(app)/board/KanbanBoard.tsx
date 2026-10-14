@@ -31,8 +31,12 @@ export interface BoardCard {
 
 type Column = (typeof BOARD_COLUMNS)[number];
 
-// Certificado crece sin parar: mostramos solo lo más reciente.
-const CERTIFIED_LIMIT = 20;
+// La última columna (Certificado, o Hecho para quien no ve las etapas de QA)
+// crece sin parar: mostramos solo lo más reciente.
+const LAST_COLUMN_LIMIT = 20;
+
+// En revisión y Certificado: solo QA, líder y admin ven estas columnas.
+const QA_COLUMNS = new Set<string>(["in_review", "resolved"]);
 
 const COLUMN_DOT: Record<string, string> = {
   open: "bg-slate-400",
@@ -52,7 +56,15 @@ function normalize(text: string) {
   return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
-export default function KanbanBoard({ initialCards }: { initialCards: BoardCard[] }) {
+export default function KanbanBoard({
+  initialCards,
+  showQaColumns,
+}: {
+  initialCards: BoardCard[];
+  showQaColumns: boolean;
+}) {
+  const columns = showQaColumns ? BOARD_COLUMNS : BOARD_COLUMNS.filter((c) => !QA_COLUMNS.has(c.id));
+  const lastColumn = columns[columns.length - 1];
   // Optimista: la tarjeta se mueve al instante; al terminar, manda lo que diga
   // el servidor (si rechazó el cambio, vuelve sola a su columna).
   const [cards, applyMove] = useOptimistic(
@@ -106,9 +118,9 @@ export default function KanbanBoard({ initialCards }: { initialCards: BoardCard[
       )}
 
       <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
-        {BOARD_COLUMNS.map((column) => {
+        {columns.map((column) => {
           const all = visible.filter((c) => column.statuses.includes(c.status));
-          const shown = column.id === "resolved" ? all.slice(0, CERTIFIED_LIMIT) : all;
+          const shown = column.id === lastColumn.id ? all.slice(0, LAST_COLUMN_LIMIT) : all;
           const canDrop = dragging ? targetFor(dragging, column) !== null : false;
           const isOver = overColumn === column.id && canDrop;
 
@@ -168,10 +180,10 @@ export default function KanbanBoard({ initialCards }: { initialCards: BoardCard[
 
               {all.length > shown.length && (
                 <Link
-                  href="/dashboard?status=resolved"
+                  href={`/dashboard?status=${column.id}`}
                   className="mt-2 px-1.5 text-xs font-medium text-nexa-blue hover:underline dark:text-blue-300"
                 >
-                  Ver los {all.length - shown.length} certificados más antiguos →
+                  Ver los {all.length - shown.length} más antiguos →
                 </Link>
               )}
             </section>
