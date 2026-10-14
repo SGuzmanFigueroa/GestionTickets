@@ -121,7 +121,10 @@ export default async function DashboardPage({
   const unassigned = openTickets
     .filter((t) => !t.assignee_id)
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  const stale = openTickets.filter((t) => daysSince(t.updated_at) >= 7);
+  // Estancado = aún en manos del responsable (Por hacer / En progreso / Reabierto) sin
+  // movimiento 7+ días. Hecho y En revisión ya fueron entregados: esperan a QA, no al responsable.
+  const isWorkStatus = (st: string) => st === "open" || st === "reopened" || st === "in_progress";
+  const stale = openTickets.filter((t) => isWorkStatus(t.status) && daysSince(t.updated_at) >= 7);
 
   // Tiempo promedio de resolución: creación → primera vez que pasó a Resuelto/Cerrado.
   const ticketById = new Map((allTickets ?? []).map((t) => [t.id, t]));
