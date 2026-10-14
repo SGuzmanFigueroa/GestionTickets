@@ -48,7 +48,7 @@ export interface ResolutionStats {
   slowest: { id: string; code: string; title: string; days: number; resolver: string | null }[];
 }
 
-type Panel = "unassigned" | "stale" | "resolution" | "idle" | null;
+type Panel = "unassigned" | "stale" | "waitingQa" | "resolution" | "idle" | null;
 
 const days = (n: number) => (n === 0 ? "hoy" : n === 1 ? "1 día" : `${n} días`);
 const avgDays = (n: number) => `${n.toFixed(1)} días`;
@@ -56,11 +56,13 @@ const avgDays = (n: number) => `${n.toFixed(1)} días`;
 export default function TeamMetrics({
   unassigned,
   stale,
+  waitingQa,
   resolution,
   people,
 }: {
   unassigned: MetricTicket[];
   stale: MetricTicket[];
+  waitingQa: MetricTicket[];
   resolution: ResolutionStats;
   people: MetricPerson[];
 }) {
@@ -69,7 +71,7 @@ export default function TeamMetrics({
   const idleCount = people.filter((p) => p.pending === 0).length;
 
   return (
-    // Sin contenedor propio: las 4 tarjetas se integran a la fila de métricas del dashboard.
+    // Sin contenedor propio: las 5 tarjetas se integran a la fila de métricas del dashboard.
     <>
         <MetricCard
           label="Sin asignar"
@@ -82,6 +84,12 @@ export default function TeamMetrics({
           value={stale.length}
           tone={stale.length ? "danger" : "default"}
           onClick={() => setPanel("stale")}
+        />
+        <MetricCard
+          label="Esperando QA (+7 días)"
+          value={waitingQa.length}
+          tone={waitingQa.length ? "warning" : "default"}
+          onClick={() => setPanel("waitingQa")}
         />
         <MetricCard
           label="Resolución promedio"
@@ -108,6 +116,20 @@ export default function TeamMetrics({
         description="Tickets abiertos sin movimiento hace 7 días o más, con su último seguimiento."
       >
         <StalePanel tickets={stale} />
+      </Modal>
+
+      <Modal
+        open={panel === "waitingQa"}
+        onClose={close}
+        size="lg"
+        title={`Esperando QA (${waitingQa.length})`}
+        description="Tickets en Hecho o En revisión sin movimiento hace 7 días o más: el responsable ya entregó y falta la revisión de QA."
+      >
+        <StalePanel
+          tickets={waitingQa}
+          emptyText="No hay tickets esperando a QA. Las revisiones están al día."
+          waitLabel="Esperando QA"
+        />
       </Modal>
 
       <Modal
@@ -224,9 +246,17 @@ function UnassignedPanel({ tickets }: { tickets: MetricTicket[] }) {
   );
 }
 
-function StalePanel({ tickets }: { tickets: MetricTicket[] }) {
+function StalePanel({
+  tickets,
+  emptyText = "No hay tickets estancados. Todo se está moviendo.",
+  waitLabel = "Sin movimiento",
+}: {
+  tickets: MetricTicket[];
+  emptyText?: string;
+  waitLabel?: string;
+}) {
   const { filtered, chips } = useAreaFilter(tickets, (t) => t.assigneeRole ?? t.targetRole);
-  if (tickets.length === 0) return <Empty>No hay tickets estancados. Todo se está moviendo.</Empty>;
+  if (tickets.length === 0) return <Empty>{emptyText}</Empty>;
 
   // Resumen: cuántos estancados tiene cada responsable.
   const byOwner = new Map<string, number>();
@@ -268,7 +298,7 @@ function StalePanel({ tickets }: { tickets: MetricTicket[] }) {
                 )}
               </div>
               <div className="text-slate-500 dark:text-slate-400">
-                Sin movimiento: <span className="font-semibold text-red-600 dark:text-red-400">{days(t.updatedDays)}</span>
+                {waitLabel}: <span className="font-semibold text-red-600 dark:text-red-400">{days(t.updatedDays)}</span>
               </div>
               <div className="text-slate-500 dark:text-slate-400">Abierto hace {days(t.createdDays)}</div>
             </div>

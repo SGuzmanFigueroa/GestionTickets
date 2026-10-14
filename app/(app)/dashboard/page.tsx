@@ -51,7 +51,7 @@ export default async function DashboardPage({
 
   const [{ data: projects }, { data: allTickets }, { data: people }, { data: resolutions }, { data: inactiveIds }, { data: botLoad }] = await Promise.all([
     supabase.from("projects").select("id, name, slug").order("name"),
-    supabase.from("tickets").select("id, title, ticket_number, status, severity, target_role, reporter_id, assignee_id, created_at, updated_at, project:projects(code)"),
+    supabase.from("tickets").select("id, title, ticket_number, status, severity, priority, project_id, target_role, reporter_id, assignee_id, created_at, updated_at, project:projects(code)"),
     supabase.from("profiles").select("id, full_name, email, role, discord_id"),
     supabase
       .from("ticket_history")
@@ -76,7 +76,15 @@ export default async function DashboardPage({
   const personInTeam = (id: string | null) => !teamFilter || (id !== null && roleOf.get(id) === teamFilter);
   const ticketInTeam = (t: { target_role: string | null; assignee_id: string | null }) =>
     !teamFilter || t.target_role === teamFilter || (t.assignee_id !== null && roleOf.get(t.assignee_id) === teamFilter);
-  const teamTickets = (allTickets ?? []).filter(ticketInTeam);
+  // Las métricas respetan los mismos filtros que la lista (salvo Estado, que vaciaría las
+  // tarjetas por estado). La carga por persona sigue siendo global.
+  const ticketMatches = (t: NonNullable<typeof allTickets>[number]) =>
+    ticketInTeam(t) &&
+    (!project || t.project_id === project) &&
+    (!priority || t.priority === priority) &&
+    (assignee === "none" ? !t.assignee_id : !assignee || t.assignee_id === assignee) &&
+    (mine !== "1" || t.assignee_id === profile.id);
+  const teamTickets = (allTickets ?? []).filter(ticketMatches);
 
   const top = (counts: Map<string, number>): LeaderboardEntry[] =>
     [...counts.entries()]
@@ -88,7 +96,7 @@ export default async function DashboardPage({
   const reported = new Map<string, number>();
   const pending = new Map<string, number>();
   for (const t of allTickets ?? []) {
-    if (t.reporter_id) reported.set(t.reporter_id, (reported.get(t.reporter_id) ?? 0) + 1);
+    if (t.reporter_id && ticketMatches(t)) reported.set(t.reporter_id, (reported.get(t.reporter_id) ?? 0) + 1);
     if (t.assignee_id && t.status !== "resolved" && t.status !== "closed") {
       pending.set(t.assignee_id, (pending.get(t.assignee_id) ?? 0) + 1);
     }
@@ -99,7 +107,12 @@ export default async function DashboardPage({
     if (profileId && row.open_tasks > 0) pending.set(profileId, (pending.get(profileId) ?? 0) + row.open_tasks);
   }
   // Quien resuelve = quien cambió el estado a Resuelto/Cerrado (un ticket cuenta una vez por persona).
-  const resolvedPairs = new Set((resolutions ?? []).map((r) => `${r.actor_id}|${r.ticket_id}`));
+  const ticketById = new Map((allTickets ?? []).map((t) => [t.id, t]));
+  const resolvedPairs = new Set(
+    (resolutions ?? [])
+      .filter((r) => ticketById.has(r.ticket_id) && ticketMatches(ticketById.get(r.ticket_id)!))
+      .map((r) => `${r.actor_id}|${r.ticket_id}`),
+  );
   const resolved = new Map<string, number>();
   for (const pair of resolvedPairs) {
     const actor = pair.split("|")[0];
@@ -125,9 +138,12 @@ export default async function DashboardPage({
   // movimiento 7+ días. Hecho y En revisión ya fueron entregados: esperan a QA, no al responsable.
   const isWorkStatus = (st: string) => st === "open" || st === "reopened" || st === "in_progress";
   const stale = openTickets.filter((t) => isWorkStatus(t.status) && daysSince(t.updated_at) >= 7);
+  // Esperando QA = entregado (Hecho / En revisión) y sin movimiento 7+ días.
+  const waitingQa = openTickets.filter(
+    (t) => (t.status === "done" || t.status === "in_review") && daysSince(t.updated_at) >= 7,
+  );
 
   // Tiempo promedio de resolución: creación → primera vez que pasó a Resuelto/Cerrado.
-  const ticketById = new Map((allTickets ?? []).map((t) => [t.id, t]));
   const codeOf = (t: { ticket_number: number; project: unknown }) =>
     `${(t.project as { code: string } | null)?.code}-${t.ticket_number}`;
   const firstResolved = new Map<string, { at: string; actor: string }>();
@@ -136,7 +152,7 @@ export default async function DashboardPage({
     if (!prev || r.created_at < prev.at) firstResolved.set(r.ticket_id, { at: r.created_at, actor: r.actor_id });
   }
   const resolvedDurations = [...firstResolved.entries()]
-    .filter(([id]) => ticketById.has(id) && ticketInTeam(ticketById.get(id)!))
+    .filter(([id]) => ticketById.has(id) && ticketMatches(ticketById.get(id)!))
     .map(([id, { at, actor }]) => {
       const t = ticketById.get(id)!;
       return { t, actor, days: (new Date(at).getTime() - new Date(t.created_at).getTime()) / DAY };
@@ -175,8 +191,8 @@ export default async function DashboardPage({
       .map((d) => ({ id: d.t.id, code: codeOf(d.t), title: d.t.title, days: d.days, resolver: nameOf.get(d.actor) ?? null })),
   };
 
-  // Seguimiento de los estancados: último cambio de historial o comentario de cada uno.
-  const staleIds = stale.map((t) => t.id);
+  // Seguimiento de estancados y esperando QA: último cambio de historial o comentario de cada uno.
+  const staleIds = [...stale, ...waitingQa].map((t) => t.id);
   const [{ data: staleHistory }, { data: staleComments }] = staleIds.length
     ? await Promise.all([
         supabase
@@ -352,7 +368,7 @@ export default async function DashboardPage({
       </AutoSubmitForm>
 
       {/* Resumen compacto: no compite con la lista */}
-      <div className={`grid grid-cols-2 gap-2 sm:grid-cols-4 ${showTeam ? "xl:grid-cols-8" : ""}`}>
+      <div className={`grid grid-cols-2 gap-2 sm:grid-cols-4 ${showTeam ? "xl:grid-cols-9" : ""}`}>
         <MetricCard label="Total" value={stats.total} />
         <MetricCard label="Por hacer" value={stats.open} tone="primary" />
         <MetricCard label="En progreso" value={stats.inProgress} tone="warning" />
@@ -361,6 +377,7 @@ export default async function DashboardPage({
           <TeamMetrics
             unassigned={unassigned.map(toMetricTicket)}
             stale={stale.sort((a, b) => a.updated_at.localeCompare(b.updated_at)).map(toMetricTicket)}
+            waitingQa={waitingQa.sort((a, b) => a.updated_at.localeCompare(b.updated_at)).map(toMetricTicket)}
             resolution={resolution}
             people={team}
           />
