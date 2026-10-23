@@ -104,7 +104,11 @@ export interface TicketFieldsPatch {
   priority?: TicketPriority;
   target_role?: UserRole | null;
   project_id?: string;
+  /** YYYY-MM-DD, o null para quitarla. */
+  due_date?: string | null;
 }
+
+const DUE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Edita uno o varios datos del ticket (título, descripción, prioridad, proyecto…). Solo líder (no finalizado) o admin. */
 export async function updateTicketFields(
@@ -145,6 +149,13 @@ export async function updateTicketFields(
     if (patch.target_role !== null && !USER_ROLES.includes(patch.target_role)) return { error: "Equipo inválido." };
     update.target_role = patch.target_role;
   }
+  let previousDueDate: string | null = null;
+  if (patch.due_date !== undefined) {
+    if (patch.due_date !== null && !DUE_DATE_RE.test(patch.due_date)) return { error: "Fecha límite inválida." };
+    const { data: before } = await supabase.from("tickets").select("due_date").eq("id", ticketId).single();
+    previousDueDate = (before?.due_date as string | null) ?? null;
+    update.due_date = patch.due_date;
+  }
 
   // Cambio de proyecto: el admin a cualquiera; un líder solo a uno de sus proyectos.
   const movingProject = Boolean(patch.project_id) && patch.project_id !== current.project_id;
@@ -162,6 +173,16 @@ export async function updateTicketFields(
 
   const { error } = await supabase.from("tickets").update(update).eq("id", ticketId);
   if (error) return { error: error.message };
+
+  if (patch.due_date !== undefined && patch.due_date !== previousDueDate) {
+    await supabase.from("ticket_history").insert({
+      ticket_id: ticketId,
+      actor_id: profile.id,
+      field: "due_date",
+      old_value: previousDueDate,
+      new_value: patch.due_date,
+    });
+  }
 
   let newCode: string | null = null;
   if (movingProject) {

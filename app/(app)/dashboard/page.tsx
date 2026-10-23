@@ -294,6 +294,7 @@ export default async function DashboardPage({
     projectName: t.project?.name ?? "",
     assigneeName: t.assignee?.full_name ?? t.assignee?.email ?? null,
     reporterName: t.reporter?.full_name ?? t.reporter?.email ?? null,
+    dueDate: t.due_date ?? null,
     updatedAt: t.updated_at,
     updatedLabel: timeAgo(t.updated_at),
     updatedTitle: formatDateTime(t.updated_at),

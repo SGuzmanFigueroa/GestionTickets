@@ -16,6 +16,26 @@ export function daysSince(iso: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000)));
 }
 
+/** Hoy en Lima como YYYY-MM-DD. */
+export function todayInLima(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: LIMA_TIME_ZONE });
+}
+
+/** Fecha límite (YYYY-MM-DD) como "22/10/2026", sin correrla de día por la zona horaria. */
+export function formatDueDate(value: string): string {
+  const [y, m, d] = value.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+/** Días que faltan para la fecha límite (negativo si ya pasó). */
+export function daysUntil(value: string): number {
+  const toUtc = (s: string) => {
+    const [y, m, d] = s.split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((toUtc(value) - toUtc(todayInLima())) / (24 * 60 * 60 * 1000));
+}
+
 /** "hace 5 min", "hace 2 h", "hace 3 d"; para fechas más viejas, la fecha. */
 export function timeAgo(iso: string): string {
   const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);

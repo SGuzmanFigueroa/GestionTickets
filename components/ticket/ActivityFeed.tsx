@@ -36,13 +36,15 @@ function Change({ item }: { item: Extract<ActivityItem, { kind: "history" }> }) 
       </>
     );
   }
-  const verb = item.field === "project" ? "movió el ticket" : "cambió el asignado";
+  const isDueDate = item.field === "due_date";
+  const verb = item.field === "project" ? "movió el ticket" : isDueDate ? "cambió la fecha límite" : "cambió el asignado";
+  const empty = isDueDate ? "Sin fecha" : "Sin asignar";
   return (
     <>
       <span className="text-slate-500 dark:text-slate-400">{verb}</span>
       <span className="mt-1 flex flex-wrap items-center gap-1.5 text-slate-700 dark:text-slate-200">
-        <span className={item.from ? "" : "italic text-slate-400"}>{item.from ?? "Sin asignar"}</span> {arrow}{" "}
-        <span className={`font-medium ${item.to ? "" : "italic text-slate-400"}`}>{item.to ?? "Sin asignar"}</span>
+        <span className={item.from ? "" : "italic text-slate-400"}>{item.from ?? empty}</span> {arrow}{" "}
+        <span className={`font-medium ${item.to ? "" : "italic text-slate-400"}`}>{item.to ?? empty}</span>
       </span>
     </>
   );

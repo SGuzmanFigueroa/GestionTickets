@@ -7,6 +7,7 @@ import ImagePasteUpload from "@/components/ImagePasteUpload";
 import EmptyState from "@/components/ui/EmptyState";
 import { HINT, INPUT, LABEL } from "@/components/ui/styles";
 import { createTicket } from "./actions";
+import { todayInLima } from "@/lib/format";
 import {
   PRIORITY_LABELS,
   ROLE_LABELS,
@@ -47,6 +48,7 @@ export default async function NewTicketPage({
   // Solo proyectos y personas de mis proyectos (admin: todos).
   const projects = (allProjects ?? []).filter((p) => inScope(scope.projectIds, p.id));
   const assignable = (people ?? []).filter((p) => !inactive.has(p.id) && inScope(scope.personIds, p.id));
+  const canSetDueDate = profile.role === "lider" || profile.role === "admin";
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -169,6 +171,13 @@ export default async function NewTicketPage({
                 </select>
                 <p id="nt-assignee-hint" className={HINT}>Opcional. Le llegará un correo avisándole.</p>
               </div>
+              {canSetDueDate && (
+                <div>
+                  <label htmlFor="nt-due" className={LABEL}>Fecha límite</label>
+                  <input id="nt-due" type="date" name="due_date" min={todayInLima()} aria-describedby="nt-due-hint" className={INPUT} />
+                  <p id="nt-due-hint" className={HINT}>Opcional. Hasta cuándo debe quedar resuelto.</p>
+                </div>
+              )}
             </Group>
 
             <div className="flex flex-col gap-2">

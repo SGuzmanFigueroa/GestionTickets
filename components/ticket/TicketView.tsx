@@ -20,6 +20,7 @@ export interface TicketViewProps {
     priority: TicketPriority;
     severity: TicketSeverity;
     targetRole: UserRole | null;
+    dueDate: string | null;
     assigneeId: string | null;
     project: { id: string; code: string; name: string };
     testCase: { id: string; title: string } | null;
@@ -108,6 +109,7 @@ export default function TicketView({ ticket: t, meta, permissions: p, people, pr
             priority={t.priority}
             severity={t.severity}
             targetRole={t.targetRole}
+            dueDate={t.dueDate}
             projectId={t.project.id}
             projects={projects}
             lockReason={p.lockReason}

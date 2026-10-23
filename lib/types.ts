@@ -105,6 +105,8 @@ export interface Ticket {
   assignee_id: string | null;
   target_role: UserRole | null;
   test_case_id: string | null;
+  /** Fecha límite (YYYY-MM-DD), la pone un líder. */
+  due_date: string | null;
   created_at: string;
   updated_at: string;
 }

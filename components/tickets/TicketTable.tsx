@@ -7,6 +7,7 @@ import Avatar from "@/components/ui/Avatar";
 import EmptyState from "@/components/ui/EmptyState";
 import { PriorityBadge, SeverityBadge, StatusBadge } from "@/components/Badge";
 import { SearchIcon } from "@/components/ui/icons";
+import DueDate from "@/components/DueDate";
 import {
   PRIORITY_LABELS,
   SEVERITY_LABELS,
@@ -30,17 +31,18 @@ export interface TicketRow {
   projectName: string;
   assigneeName: string | null;
   reporterName: string | null;
+  dueDate: string | null;
   updatedAt: string;
   updatedLabel: string;
   updatedTitle: string;
 }
 
-type SortKey = "code" | "title" | "status" | "priority" | "severity" | "project" | "assignee" | "reporter" | "updated";
+type SortKey = "code" | "title" | "status" | "priority" | "severity" | "project" | "assignee" | "reporter" | "due" | "updated";
 type Sort = { key: SortKey; dir: "asc" | "desc" };
 
 const PAGE = 50;
 const DEFAULT_SORT: Sort = { key: "updated", dir: "desc" };
-const SORT_KEYS: SortKey[] = ["code", "title", "status", "priority", "severity", "project", "assignee", "reporter", "updated"];
+const SORT_KEYS: SortKey[] = ["code", "title", "status", "priority", "severity", "project", "assignee", "reporter", "due", "updated"];
 
 function parseSort(value: string | undefined): Sort {
   const [key, dir] = (value ?? "").split(":");
@@ -52,6 +54,9 @@ function parseSort(value: string | undefined): Sort {
 // Orden "natural" de cada columna (ej. prioridad: urgente primero).
 const rank = <T extends string>(list: readonly T[]) => (v: T) => list.indexOf(v);
 const statusRank = rank(TICKET_STATUSES);
+/** Con el trabajo ya entregado, la fecha límite deja de marcarse como vencida. */
+const FINISHED_STATUSES: TicketStatus[] = ["done", "in_review", "resolved", "closed"];
+
 const priorityRank = rank(TICKET_PRIORITIES);
 const severityRank = rank(TICKET_SEVERITIES);
 
@@ -74,6 +79,8 @@ function compare(a: TicketRow, b: TicketRow, key: SortKey): number {
       return text(a.assigneeName, b.assigneeName);
     case "reporter":
       return text(a.reporterName, b.reporterName);
+    case "due":
+      return text(a.dueDate, b.dueDate);
     case "updated":
       return a.updatedAt.localeCompare(b.updatedAt);
   }
@@ -231,7 +238,7 @@ export default function TicketTable({
         <>
           {/* Tabla — tablet / escritorio */}
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[900px] table-fixed text-left text-sm">
+            <table className="w-full min-w-[1000px] table-fixed text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-400">
                 <tr>
                   {th("code", "Clave", "w-[88px]")}
@@ -242,6 +249,7 @@ export default function TicketTable({
                   {th("project", "Proyecto", "w-32")}
                   {th("assignee", "Asignado a", "w-44")}
                   {th("reporter", "Reportado por", "hidden w-40 2xl:table-cell")}
+                  {th("due", "Vence", "w-[104px]")}
                   {th("updated", "Actualizado", "w-[120px]")}
                 </tr>
               </thead>
@@ -287,6 +295,9 @@ export default function TicketTable({
                     <td className="hidden max-w-0 px-3 py-2 text-slate-600 2xl:table-cell dark:text-slate-300">
                       {t.reporterName ? <Person name={t.reporterName} /> : <span className="text-slate-400">—</span>}
                     </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-xs">
+                      <DueDate value={t.dueDate} finished={FINISHED_STATUSES.includes(t.status)} compact />
+                    </td>
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                       <time dateTime={t.updatedAt} title={t.updatedTitle}>
                         {t.updatedLabel}
@@ -312,6 +323,7 @@ export default function TicketTable({
                     <PriorityBadge priority={t.priority} label={PRIORITY_LABELS[t.priority]} />
                     <SeverityBadge severity={t.severity} label={SEVERITY_LABELS[t.severity]} />
                     <span className="truncate">{t.projectName}</span>
+                    {t.dueDate && <DueDate value={t.dueDate} finished={FINISHED_STATUSES.includes(t.status)} compact />}
                     <span className="ml-auto">
                       <Person name={t.assigneeName} />
                     </span>

@@ -20,7 +20,8 @@ import {
   type TicketStatus,
   type UserRole,
 } from "@/lib/types";
-import { InlineText, OptionPicker, StatusPicker, UserPicker, type Option, type PersonOption } from "./FieldEditors";
+import DueDate from "@/components/DueDate";
+import { DateField, InlineText, OptionPicker, StatusPicker, UserPicker, type Option, type PersonOption } from "./FieldEditors";
 
 const SEVERITY_DOT: Record<TicketSeverity, string> = {
   critical: "bg-red-600",
@@ -46,7 +47,10 @@ const TEAM_OPTIONS: Option<UserRole | "none">[] = [
   ...USER_ROLES.filter((r) => r !== "admin" && r !== "lider").map((r) => ({ value: r, label: ROLE_LABELS[r] })),
 ];
 
-type TextField = "title" | "description" | "steps_to_reproduce" | "environment";
+/** Con el trabajo ya entregado, la fecha límite deja de marcarse como vencida. */
+const FINISHED_STATUSES: TicketStatus[] = ["done", "in_review", "resolved", "closed"];
+
+type TextField ="title" | "description" | "steps_to_reproduce" | "environment";
 
 /** Título y textos largos del ticket, editables inline. */
 export function TicketTextEditor({
@@ -102,6 +106,7 @@ export function TicketDetailsPanel({
   priority,
   severity,
   targetRole,
+  dueDate,
   projectId,
   projects,
   lockReason,
@@ -117,6 +122,7 @@ export function TicketDetailsPanel({
   priority: TicketPriority;
   severity: TicketSeverity;
   targetRole: UserRole | null;
+  dueDate: string | null;
   projectId: string;
   projects: { id: string; code: string; name: string }[];
   lockReason: string | null;
@@ -159,6 +165,17 @@ export function TicketDetailsPanel({
               people={people}
               editable={canChangeAssignee}
               save={(id) => changeTicketAssignee(ticketId, id)}
+            />
+          </Row>
+          <Row label="Fecha límite">
+            <DateField
+              key={dueDate ?? "none"}
+              label="Fecha límite"
+              value={dueDate}
+              editable={canEditDetails}
+              successMessage="Fecha límite actualizada"
+              renderValue={(v) => <DueDate value={v} finished={FINISHED_STATUSES.includes(status)} />}
+              save={(v) => updateTicketFields(ticketId, { due_date: v })}
             />
           </Row>
           <Row label="Prioridad">

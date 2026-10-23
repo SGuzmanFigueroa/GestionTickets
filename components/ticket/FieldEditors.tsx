@@ -223,6 +223,65 @@ export function OptionPicker<T extends string>({
 }
 
 // ---------------------------------------------------------------------------
+// Fecha límite: selector de fecha nativo, con opción de quitarla.
+
+export function DateField({
+  label,
+  value: initial,
+  editable,
+  save,
+  successMessage,
+  renderValue,
+}: {
+  label: string;
+  /** YYYY-MM-DD o null. */
+  value: string | null;
+  editable: boolean;
+  save: Save<string | null>;
+  successMessage: string;
+  renderValue: (value: string | null) => React.ReactNode;
+}) {
+  const { value, commit, pending } = useOptimisticField(initial, save, successMessage);
+
+  if (!editable) {
+    return <div className="flex min-h-8 items-center px-2 text-sm text-slate-800 dark:text-slate-100">{renderValue(value)}</div>;
+  }
+
+  return (
+    <div className="flex min-h-8 items-center gap-1">
+      <label className="relative flex min-h-8 min-w-0 flex-1 cursor-pointer items-center rounded-md px-2 text-sm text-slate-800 transition-colors focus-within:ring-2 focus-within:ring-nexa-blue/40 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-700/60">
+        {renderValue(value)}
+        <input
+          type="date"
+          value={value ?? ""}
+          onChange={(e) => commit(e.target.value || null)}
+          onClick={(e) => e.currentTarget.showPicker?.()}
+          aria-label={label}
+          className="absolute inset-0 cursor-pointer opacity-0"
+        />
+      </label>
+      {pending ? (
+        <Spinner />
+      ) : (
+        value && (
+          <button
+            type="button"
+            onClick={() => commit(null)}
+            aria-label={`Quitar ${label.toLowerCase()}`}
+            title="Quitar"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        )
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Asignado: buscador de personas con avatar y rol.
 
 export interface PersonOption {

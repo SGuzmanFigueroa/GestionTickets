@@ -20,6 +20,10 @@ export async function createTicket(formData: FormData) {
   const testCaseId = String(formData.get("test_case_id") ?? "");
   // Asignación inicial: quien reporta puede asignar su ticket mientras no tenga responsable.
   const assigneeId = String(formData.get("assignee_id") ?? "") || null;
+  // Fecha límite: solo la pone un líder o admin (la base también lo exige, migración 0021).
+  const rawDueDate = String(formData.get("due_date") ?? "");
+  const dueDate =
+    (profile.role === "lider" || profile.role === "admin") && /^\d{4}-\d{2}-\d{2}$/.test(rawDueDate) ? rawDueDate : null;
   const attachments = String(formData.get("attachments") ?? "")
     .split(",")
     .map((url) => url.trim())
@@ -51,6 +55,8 @@ export async function createTicket(formData: FormData) {
       test_case_id: testCaseId || null,
       reporter_id: profile.id,
       assignee_id: assigneeId,
+      // Solo se envía si hay fecha, para no depender de la columna en inserts sin ella.
+      ...(dueDate ? { due_date: dueDate } : {}),
     })
     .select("id, ticket_number, project:projects(code)")
     .single();

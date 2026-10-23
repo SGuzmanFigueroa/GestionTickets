@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { ticketPermissions, visibleStatus } from "@/lib/ticket-permissions";
-import { formatDateTime, timeAgo } from "@/lib/format";
+import { formatDateTime, formatDueDate, timeAgo } from "@/lib/format";
 import Avatar from "@/components/ui/Avatar";
 import TicketView from "@/components/ticket/TicketView";
 import type { ActivityItem } from "@/components/ticket/ActivityFeed";
@@ -69,9 +69,12 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
     ...(history ?? []).flatMap((h) => {
       const actor = (Array.isArray(h.actor) ? h.actor[0] : h.actor) as { full_name: string | null; email: string } | null;
       const isStatus = h.field === "status";
-      const isAssignee = !isStatus && h.field !== "project";
-      const from = isStatus ? shownStatus(h.old_value) : isAssignee ? personName(h.old_value) : h.old_value;
-      const to = isStatus ? shownStatus(h.new_value) : isAssignee ? personName(h.new_value) : h.new_value;
+      const isDueDate = h.field === "due_date";
+      const isAssignee = !isStatus && !isDueDate && h.field !== "project";
+      const show = (v: string | null) =>
+        isStatus ? shownStatus(v) : isAssignee ? personName(v) : isDueDate && v ? formatDueDate(v) : v;
+      const from = show(h.old_value);
+      const to = show(h.new_value);
       // Pasos de QA (Hecho → En revisión → Certificado) que esta persona ve como "Hecho": no se listan.
       if (isStatus && from === to) return [];
       return [
@@ -106,6 +109,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         priority: t.priority,
         severity: t.severity,
         targetRole: t.target_role,
+        dueDate: t.due_date ?? null,
         assigneeId: t.assignee_id,
         project: { id: t.project.id, code: t.project.code, name: t.project.name },
         testCase: t.test_case ? { id: t.test_case.id, title: t.test_case.title } : null,
