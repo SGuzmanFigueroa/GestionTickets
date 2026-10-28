@@ -257,6 +257,36 @@ export async function addTicketAttachments(formData: FormData) {
   redirect(`/tickets/${ticketId}?success=${encodeURIComponent(attachments.length === 1 ? "Imagen adjuntada" : "Imágenes adjuntadas")}`);
 }
 
+/** Quien subió la imagen, un líder o el admin (misma regla que la política RLS de 0022). */
+export async function deleteTicketAttachment(attachmentId: string): Promise<Result> {
+  const profile = await requireProfile();
+  const supabase = await createClient();
+  const { data: attachment } = await supabase
+    .from("ticket_attachments")
+    .select("id, ticket_id, url, uploaded_by")
+    .eq("id", attachmentId)
+    .single();
+
+  if (!attachment) return { error: "No encontramos esta imagen." };
+  const canDelete = profile.role === "admin" || profile.role === "lider" || attachment.uploaded_by === profile.id;
+  if (!canDelete) return { error: "Solo quien subió la imagen o un líder puede borrarla." };
+
+  // RLS no da error si no deja borrar: solo devuelve 0 filas.
+  const { data: deleted, error } = await supabase.from("ticket_attachments").delete().eq("id", attachmentId).select("id");
+  if (error) return { error: error.message };
+  if (!deleted?.length) return { error: "No se pudo borrar la imagen (sin permiso en la base de datos)." };
+
+  // El archivo en Storage: si falla, el adjunto ya no se muestra, así que no bloqueamos.
+  const marker = "/ticket-images/";
+  const at = attachment.url.indexOf(marker);
+  if (at !== -1) {
+    await supabase.storage.from("ticket-images").remove([decodeURIComponent(attachment.url.slice(at + marker.length))]);
+  }
+
+  revalidatePath(`/tickets/${attachment.ticket_id}`);
+  return { error: null };
+}
+
 export async function deleteTicket(formData: FormData) {
   await requireAdmin();
   const ticketId = String(formData.get("ticket_id") ?? "");

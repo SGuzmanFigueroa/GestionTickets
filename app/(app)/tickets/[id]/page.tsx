@@ -143,6 +143,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         url: a.url,
         uploadedBy: personName(a.uploaded_by),
         createdAt: formatDateTime(a.created_at),
+        canDelete: profile.role === "admin" || profile.role === "lider" || a.uploaded_by === profile.id,
       }))}
       activity={activity}
       me={profile.full_name ?? profile.email}

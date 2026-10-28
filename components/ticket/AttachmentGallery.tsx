@@ -1,13 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
+import { deleteTicketAttachment } from "@/app/(app)/tickets/[id]/actions";
 
 export interface AttachmentItem {
   id: string;
   url: string;
   uploadedBy: string | null;
   createdAt: string;
+  /** Quien la subió, un líder o el admin (por si se equivocaron de imagen). */
+  canDelete: boolean;
 }
 
 /** Las capturas se guardan con un UUID como nombre; mostramos algo legible. */
@@ -19,6 +22,18 @@ function fileName(index: number) {
 export default function AttachmentGallery({ items }: { items: AttachmentItem[] }) {
   const [index, setIndex] = useState<number | null>(null);
   const close = useCallback(() => setIndex(null), []);
+  const [pending, startTransition] = useTransition();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  function remove(item: AttachmentItem) {
+    if (!confirm("¿Borrar esta imagen? No se puede deshacer.")) return;
+    setDeleteError(null);
+    startTransition(async () => {
+      const { error } = await deleteTicketAttachment(item.id);
+      if (error) setDeleteError(error);
+      else setIndex(null);
+    });
+  }
 
   useEffect(() => {
     if (index === null) return;
@@ -41,9 +56,10 @@ export default function AttachmentGallery({ items }: { items: AttachmentItem[] }
 
   return (
     <>
+      {deleteError && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{deleteError}</p>}
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
         {items.map((a, i) => (
-          <li key={a.id}>
+          <li key={a.id} className="relative">
             <button
               type="button"
               onClick={() => setIndex(i)}
@@ -61,6 +77,18 @@ export default function AttachmentGallery({ items }: { items: AttachmentItem[] }
                 </p>
               </div>
             </button>
+            {a.canDelete && (
+              <button
+                type="button"
+                onClick={() => remove(a)}
+                disabled={pending}
+                aria-label={`Borrar captura ${i + 1}`}
+                title="Borrar imagen"
+                className="absolute right-1.5 top-1.5 rounded-md bg-slate-900/70 px-2 py-1 text-xs font-medium text-white transition hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50"
+              >
+                Borrar
+              </button>
+            )}
           </li>
         ))}
       </ul>
@@ -87,6 +115,16 @@ export default function AttachmentGallery({ items }: { items: AttachmentItem[] }
                 >
                   Abrir original ↗
                 </a>
+                {current.canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => remove(current)}
+                    disabled={pending}
+                    className="rounded-md px-2.5 py-1 text-xs text-red-300 hover:bg-red-600 hover:text-white disabled:opacity-50"
+                  >
+                    {pending ? "Borrando…" : "Borrar"}
+                  </button>
+                )}
                 <button type="button" onClick={close} aria-label="Cerrar" className="rounded-md px-2.5 py-1 text-lg leading-none hover:bg-white/10">
                   ×
                 </button>
